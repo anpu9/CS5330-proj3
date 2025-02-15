@@ -33,6 +33,6 @@ add_opencv_executable(VidDisplay
 
 # 🔹 Add test executable
 add_test_executable(Google_test_run
-        src/test_image_process.cpp  # Adjust the path to your test file
+        tests/test_image_process.cpp  # Adjust the path to your test file
         src/image_process.cpp
 )

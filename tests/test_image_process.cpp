@@ -40,27 +40,27 @@ cv::Mat loadTestImage(const std::string &filename) {
 
 // Test two-pass segmentation
 TEST(ImageProcessTest, TwoPassSegmentationTest) {
-//    cv::Mat binaryImage = loadTestImage("example001.png");
-    std::string imagePath = "../test-imgs/example167.png";
-    cv::Mat binaryImage = cv::imread(imagePath, IMREAD_GRAYSCALE);
+    cv::Mat binaryImage = loadTestImage("example001.png");
     cv::Mat regionMap;
 
+    int result_4conn = two_pass_segmentation_4conn(binaryImage, regionMap);
+    int result_8conn = two_pass_segmentation_8conn(binaryImage, regionMap);
 
-    int result = two_pass_segmentation(binaryImage, regionMap);
-
-    EXPECT_EQ(result, 0);
+    EXPECT_EQ(result_4conn, 0);
+    EXPECT_EQ(result_8conn, 0);
     EXPECT_EQ(regionMap.type(), CV_32S);
 
-// Ensure that at least one region has been labeled
+    // Ensure that at least one region has been labeled
     EXPECT_GT(cv::countNonZero(regionMap), 0);
-
     // Colorize the result
-    cv::Mat colorizedRegions;
-    colorizeRegions(regionMap, colorizedRegions);
+    cv::Mat colorizedRegions4conn, colorizedRegions8conn;
+    colorizeRegions(regionMap, colorizedRegions4conn);
+    colorizeRegions(regionMap, colorizedRegions8conn);
 
     // Display original and segmented images
     cv::imshow("Binary Image", binaryImage);
-    cv::imshow("Labeled Regions", colorizedRegions);
+    cv::imshow("Labeled Regions - 4 connectivity", colorizedRegions4conn);
+    cv::imshow("Labeled Regions - 8 connectivity", colorizedRegions8conn);
     cv::waitKey(0);  // Press any key to close
 }
 
