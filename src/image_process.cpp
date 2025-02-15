@@ -57,7 +57,7 @@ int two_pass_segmentation(const Mat& binaryImage, Mat& regionMap) {
             if (j > 0 && regionMap.at<int>(i,j-1) > 0) {
                 neighbors.push_back(regionMap.at<int>(i,j-1));
             }
-            if (j > 0 && regionMap.at<int>(i,j) > 0) {
+            if (j > 0 && regionMap.at<int>(i-1,j) > 0) {
                 neighbors.push_back(regionMap.at<int>(i-1,j));
             }
 
@@ -80,7 +80,7 @@ int two_pass_segmentation(const Mat& binaryImage, Mat& regionMap) {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             if (binaryImage.at<uchar>(i, j) == 0) continue; // Ignore the background
-            regionMap.at<uchar>(i, j) = find(parent, regionMap.at<uchar>(i, j));
+            regionMap.at<int>(i, j) = find(parent, regionMap.at<int>(i, j));
         }
     }
     return 0;
@@ -91,21 +91,15 @@ int colorizeRegions(const cv::Mat& labelMap, Mat& colorImage) {
         cerr << "ERROR: invalid input for regionMap visualization." << endl;
         return -1;  // Invalid input
     }
-    unordered_map<int, cv::Vec3b> colorMap;
-    colorImage.create(labelMap.size(), CV_8UC3);
-    colorImage.setTo(cv::Scalar(0, 0, 0));  // Set background to black
+    cv::Mat normalizedLabels;
+    double minVal, maxVal;
+    cv::minMaxLoc(labelMap, &minVal, &maxVal);
+    // Normalize labels to 255
+    labelMap.convertTo(normalizedLabels, CV_8U, 255.0 / maxVal); // Normalize labels to 0-255
+    normalizedLabels.setTo(0, labelMap == 0); // Ensure background remains 0
+    cv::applyColorMap(normalizedLabels, colorImage, cv::COLORMAP_JET); // Apply color mapping
 
-
-    for (int i = 0; i < labelMap.rows; i++) {
-        for (int j = 0; j < labelMap.cols; j++) {
-            int label = labelMap.at<int>(i, j);
-            if (label == 0) continue; // Background remains black
-
-            if (colorMap.find(label) == colorMap.end()) { // assign a new color
-                colorMap[label] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
-            }
-            colorImage.at<cv::Vec3b>(i, j) = colorMap[label];
-        }
-    }
+    // Ensure background remains black (0,0,0)
+    colorImage.setTo(cv::Vec3b(0, 0, 0), labelMap == 0);
     return 0;
 }
