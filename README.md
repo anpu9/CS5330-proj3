@@ -43,7 +43,10 @@ Proj3/
 - **Usage**:
   ```bash
   # specify a test function in gtest_filter Flag
-  ./Google_test_run --gtest_filter="*ImageProcessTest.TwoPassSegmentationTest*"
+  ./Google_test_run --gtest_filter="*[TestSuiteName].[TestName]*"
   ```
 - **Example**:
   ```bash
+  
+  ./Google_test_run --gtest_filter="*ImageProcessTest.TwoPassSegmentationTest*"
+  ```
