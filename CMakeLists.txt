@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Base packages
 find_package(OpenCV REQUIRED)
+# Google test
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
+add_subdirectory(Google_tests)
 
 # Function for OpenCV-only executables
 function(add_opencv_executable exe_name)
