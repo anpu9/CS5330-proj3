@@ -3,23 +3,25 @@ project(Proj3)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Base packages
+# Find OpenCV
 find_package(OpenCV REQUIRED)
-# Google test
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
-add_subdirectory(Google_tests)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
-# Function for OpenCV-only executables
+# Add Google Test from local directory
+add_subdirectory(Google_tests/lib)  # Points to your local GTest source
+include_directories(Google_tests/lib/googletest/include)
+include_directories(Google_tests/lib/googlemock/include)
+
+# Function to add OpenCV-only executables
 function(add_opencv_executable exe_name)
     add_executable(${exe_name} ${ARGN})
     target_link_libraries(${exe_name} PRIVATE ${OpenCV_LIBS})
-    target_include_directories(${exe_name} PRIVATE ${OpenCV_INCLUDE_DIRS})
 endfunction()
 
 
 
-# Add OpenCV-only executables
+
+# Add OpenCV executable
 add_opencv_executable(VidDisplay
         src/vidDisplay.cpp
         src/image_process.cpp
