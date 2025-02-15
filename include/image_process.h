@@ -13,6 +13,6 @@ int threshold(const Mat& src, Mat& dst);
 // Clean up your thresholded image with morphological filtering
 int morphologicalFilter(const Mat& src, Mat& dst);
 // Segment the image into regions
-int segment(const Mat& src, Mat& dst);
+int two_pass_segmentation(const Mat& binaryImage, Mat& regionMap)
 
 #endif //PROJ3_IMAGE_PROCESS_H
