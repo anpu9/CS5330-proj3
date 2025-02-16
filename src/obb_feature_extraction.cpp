@@ -69,6 +69,54 @@ void drawResults(cv::Mat& image, cv::Point2f centroid, double theta, cv::Rotated
     }
 }
 
+// Compute Hu Moments (Translation, Scale, and Rotation Invariant Features)
+void computeHuMoments(const Moments& m, vector<double>& huMoments) {
+    double hu[7];
+    cv::HuMoments(m, hu);
+    huMoments.assign(hu, hu + 7);
+
+    // Log-scale transformation for numerical stability
+    for (double &moment : huMoments) {
+        moment = -1 * copysign(1.0, moment) * log10(abs(moment) + 1e-10);
+    }
+}
+// Compute Aspect Ratio of the OBB, it measures the elongation of the region
+double computeAspectRatio(const RotatedRect& obb) {
+    return obb.size.width / obb.size.height;
+}
+
+double computePerimeterToArea(const Mat& binaryMask, const vector<vector<Point>>& contours){
+    double perimeter = arcLength(contours[0], true);
+    double area = contourArea(contours[0]);
+
+    return (area > 0) ? (perimeter / area) : -1;  // Avoid division by zero
+}
+
+double computePercentFilled(const vector<vector<Point>>& contours, const RotatedRect& obb) {
+    double regionArea = contourArea(contours[0]);
+    double obbArea = obb.size.area();
+
+    return regionArea / obbArea;
+}
+
+int computeRegionShapeFeatures(const Mat& binaryMask, const RotatedRect& obb, int regionId) {
+    vector<vector<Point>> contours;
+    findContours(binaryMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    if (contours.empty()) {
+        cerr << "ERROR: contour is empty!" << endl;
+        return -1;
+    }
+    double aspectRatio = computeAspectRatio(obb);
+    double perimeterToArea = computePerimeterToArea(binaryMask, contours);
+    double percentFilled = computePercentFilled(contours, obb);
+
+    // Print Results
+    cout << "Region " << regionId << " Shape Features: " << endl;
+    cout << "  - Aspect Ratio: " << aspectRatio << endl;
+    cout << "  - Perimeter-to-Area Ratio: " << perimeterToArea << endl;
+    cout << "  - % of filled: " << percentFilled << endl;
+    return 0;
+}
 // Main function to compute OBB and draw OBB
 int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::Mat& dst) {
     // Step 1: Get Binary Mask
@@ -93,20 +141,32 @@ int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::
         std::cerr << "Error: Unable to compute Oriented Bounding Box for region ID: " << regionID << std::endl;
         return -1;  // Failed to compute OBB
     }
+    // Step 4: Compute Hu Moments (Rotation, Scale, and Translation Invariant)
+    vector<double> huMoments;
+    computeHuMoments(m, huMoments);
 
-    // Step 4: Draw Features
+    // Step 5: Draw Features
     dst = image.clone();
     drawResults(dst, centroid, theta, obb);
     imshow("Obb over image", dst);
     cv::waitKey(0);  // Wait indefinitely for a key press
 
-    // Step 5: Print Feature Information
-    std::cout << "Region " << regionID << " Features:\n";
-    std::cout << "  - Centroid: (" << centroid.x << ", " << centroid.y << ")\n";
-    std::cout << "  - Least Central Moment Axis Angle: " << theta * 180.0 / CV_PI << " degrees\n";
-    std::cout << "  - OBB Center: (" << obb.center.x << ", " << obb.center.y << ")\n";
-    std::cout << "  - OBB Size: (" << obb.size.width << " x " << obb.size.height << ")\n";
-    std::cout << "  - OBB Angle: " << obb.angle << " degrees\n";
+    // Step 6: Print Feature Information
+    cout << "Region " << regionID << " Features:\n";
+    cout << "  - Centroid: (" << centroid.x << ", " << centroid.y << ")\n";
+    cout << "  - Least Central Moment Axis Angle: " << theta * 180.0 / CV_PI << " degrees\n";
+    cout << "  - OBB Center: (" << obb.center.x << ", " << obb.center.y << ")\n";
+    cout << "  - OBB Size: (" << obb.size.width << " x " << obb.size.height << ")\n";
+    cout << "  - OBB Angle: " << obb.angle << " degrees\n";
+
+    // Compute and print shape feature
+    computeRegionShapeFeatures(binaryMask, obb, regionID);
+
+    // Print Hu Moments (Invariant Features)
+    cout << "Region " << regionID << " Hu Moments (Log Transformed):\n";
+    for (size_t i = 0; i < huMoments.size(); i++) {
+        cout << "    - Hu[" << i + 1 << "]: " << huMoments[i] << "\n";
+    }
 
     return 0;  // Success
 }

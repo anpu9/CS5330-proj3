@@ -34,7 +34,7 @@ void connect(vector<int>& parent, int x, int y) {
  * @param minRegionSize Minimum size to keep a region.
  * @return -1 failure, 0 success
  */
-int two_pass_segmentation_4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
+int twoPassSegmentation4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
     if (binaryImage.empty()) {
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;
@@ -101,7 +101,7 @@ int two_pass_segmentation_4conn(const Mat& binaryImage, Mat& regionMap, int minR
  * @param minRegionSize Minimum size to keep a region.
  * @return -1 failure, success return number of regions
  */
-int two_pass_segmentation_8conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
+int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
     if (binaryImage.empty()) {
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;

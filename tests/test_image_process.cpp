@@ -26,7 +26,7 @@ protected:
 
     void SetUp() override {
         binaryImage = loadTestImage("example001.png");
-        int result = two_pass_segmentation_8conn(binaryImage, regionMap);
+        int result = twoPassSegmentation8conn(binaryImage, regionMap);
         ASSERT_EQ(regionMap.type(), CV_32S);
         ASSERT_GT(cv::countNonZero(regionMap), 0); // Ensure valid segmentation
         printLabel();
