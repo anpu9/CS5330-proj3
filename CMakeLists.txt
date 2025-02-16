@@ -35,4 +35,5 @@ add_opencv_executable(VidDisplay
 add_test_executable(Google_test_run
         tests/test_image_process.cpp  # Adjust the path to your test file
         src/image_process.cpp
+        src/obb_feature_extraction.cpp
 )

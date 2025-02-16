@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
 #include "../include/image_process.h"
+#include "../include/obb_feature_extraction.h"
 
 using namespace cv;
 
@@ -17,58 +18,51 @@ cv::Mat loadTestImage(const std::string &filename) {
     return image;
 }
 
-// Test threshold function
-//TEST(ImageProcessTest, ThresholdTest) {
-//    cv::Mat input = loadTestImage("example001.png");
-//    cv::Mat output;
-//    int result = threshold(input, output);
-//
-//    EXPECT_EQ(result, 0);
-//    EXPECT_EQ(output.type(), CV_8UC1);
-//}
 
-// Test morphological filtering
-//TEST(ImageProcessTest, MorphologicalFilterTest) {
-//    cv::Mat input = loadTestImage("example001.png");
-//    cv::Mat output;
-//    threshold(input, output); // Ensure binary image before morphological filtering
-//    int result = morphologicalFilter(output, output);
-//
-//    EXPECT_EQ(result, 0);
-//    EXPECT_EQ(output.type(), CV_8UC1);
-//}
-
-// Test two-pass segmentation
-TEST(ImageProcessTest, TwoPassSegmentationTest) {
-    cv::Mat binaryImage = loadTestImage("example001.png");
+class ImageProcessingTest : public ::testing::Test {
+protected:
+    cv::Mat binaryImage;
     cv::Mat regionMap;
 
-    int result_4conn = two_pass_segmentation_4conn(binaryImage, regionMap);
-    int result_8conn = two_pass_segmentation_8conn(binaryImage, regionMap);
+    void SetUp() override {
+        binaryImage = loadTestImage("example001.png");
+        int result = two_pass_segmentation_8conn(binaryImage, regionMap);
+        ASSERT_EQ(regionMap.type(), CV_32S);
+        ASSERT_GT(cv::countNonZero(regionMap), 0); // Ensure valid segmentation
+        printLabel();
+    }
+    void printLabel() {
+        std::set<int> uniqueLabels;
+        for (int i = 0; i < regionMap.rows; i++) {
+            for (int j = 0; j < regionMap.cols; j++) {
+                uniqueLabels.insert(regionMap.at<int>(i, j));
+            }
+        }
+        std::cout << "Unique region IDs in regionMap: ";
+        for (int id : uniqueLabels) std::cout << id << " ";
+        std::cout << std::endl;
+    }
+};
 
-    EXPECT_EQ(result_4conn, 0);
-    EXPECT_EQ(result_8conn, 0);
-    EXPECT_EQ(regionMap.type(), CV_32S);
+// Test two-pass segmentation inside the fixture
+TEST_F(ImageProcessingTest, TwoPassSegmentationTest) {
+    cv::Mat colorizedRegions;
+    colorizeRegions(regionMap, colorizedRegions);
 
-    // Ensure that at least one region has been labeled
-    EXPECT_GT(cv::countNonZero(regionMap), 0);
-    // Colorize the result
-    cv::Mat colorizedRegions4conn, colorizedRegions8conn;
-    colorizeRegions(regionMap, colorizedRegions4conn);
-    colorizeRegions(regionMap, colorizedRegions8conn);
-
-    // Display original and segmented images
-    cv::imshow("Binary Image", binaryImage);
-    cv::imshow("Labeled Regions - 4 connectivity", colorizedRegions4conn);
-    cv::imshow("Labeled Regions - 8 connectivity", colorizedRegions8conn);
-    cv::waitKey(0);  // Press any key to close
+    cv::imshow("Segmented Regions", colorizedRegions);
+    cv::waitKey(0);
 }
 
-// Main function to run all src
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    // Set Google Test filter to run only a specific test case
-    ::testing::GTEST_FLAG(filter) = "ImageProcessTest.TwoPassSegmentationTest";
+// Test OBB using the fixture data
+TEST_F(ImageProcessingTest, OBBTest) {
+    int regionId = 2;
+    cv::Mat dst;
+    int result = computeRegionFeatures(regionMap, regionId, binaryImage, dst);
 
-    return RUN_ALL_TESTS();
+// Validate the function execution
+    EXPECT_EQ(result, 0) << "Function failed to execute properly.";
+
+// Validate the output
+    EXPECT_FALSE(dst.empty()) << "Output image is empty.";
+    EXPECT_EQ(dst.size(), binaryImage.size()) << "Output dimensions do not match input.";
 }

@@ -6,5 +6,12 @@
 
 #ifndef PROJ3_OBB_FEATURE_EXTRACTION_H
 #define PROJ3_OBB_FEATURE_EXTRACTION_H
+#include <opencv2/opencv.hpp>
 
+
+//int computeOrientedBoundingBox(cv::Mat& regionMap, int regionID, cv::RotatedRect& obb);
+// Draw box, axis, centroid on original image
+//void drawResults(cv::Mat& image, cv::Point2f centroid, double theta, cv::RotatedRect& obb);
+// Main function to compute OBB and draw OBB
+int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::Mat& dst);
 #endif //PROJ3_OBB_FEATURE_EXTRACTION_H
