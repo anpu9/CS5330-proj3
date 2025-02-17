@@ -81,44 +81,48 @@ void computeHuMoments(const Moments& m, vector<double>& huMoments) {
     }
 }
 // Compute Aspect Ratio of the OBB, it measures the elongation of the region
-double computeAspectRatio(const RotatedRect& obb) {
+float computeAspectRatio(const RotatedRect& obb) {
     return obb.size.width / obb.size.height;
 }
 
-double computePerimeterToArea(const Mat& binaryMask, const vector<vector<Point>>& contours){
+float computePerimeterToArea(const Mat& binaryMask, const vector<vector<Point>>& contours){
     double perimeter = arcLength(contours[0], true);
     double area = contourArea(contours[0]);
 
     return (area > 0) ? (perimeter / area) : -1;  // Avoid division by zero
 }
 
-double computePercentFilled(const vector<vector<Point>>& contours, const RotatedRect& obb) {
+float computePercentFilled(const vector<vector<Point>>& contours, const RotatedRect& obb) {
     double regionArea = contourArea(contours[0]);
     double obbArea = obb.size.area();
 
     return regionArea / obbArea;
 }
 
-int computeRegionShapeFeatures(const Mat& binaryMask, const RotatedRect& obb, int regionId) {
+int computeRegionShapeFeatures(const Mat& binaryMask, const RotatedRect& obb, int regionId, vector<float>& shapeFeatures) {
     vector<vector<Point>> contours;
     findContours(binaryMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
     if (contours.empty()) {
         cerr << "ERROR: contour is empty!" << endl;
         return -1;
     }
-    double aspectRatio = computeAspectRatio(obb);
-    double perimeterToArea = computePerimeterToArea(binaryMask, contours);
-    double percentFilled = computePercentFilled(contours, obb);
+    float aspectRatio = computeAspectRatio(obb);
+    float perimeterToArea = computePerimeterToArea(binaryMask, contours);
+    float percentFilled = computePercentFilled(contours, obb);
+
+    shapeFeatures.push_back(aspectRatio);
+    shapeFeatures.push_back(perimeterToArea);
+    shapeFeatures.push_back(percentFilled);
 
     // Print Results
     cout << "Region " << regionId << " Shape Features: " << endl;
-    cout << "  - Aspect Ratio: " << aspectRatio << endl;
-    cout << "  - Perimeter-to-Area Ratio: " << perimeterToArea << endl;
-    cout << "  - % of filled: " << percentFilled << endl;
+    cout << "  - Aspect Ratio: " << shapeFeatures[0] << endl;
+    cout << "  - Perimeter-to-Area Ratio: " << shapeFeatures[1] << endl;
+    cout << "  - % of filled: " << shapeFeatures[2] << endl;
     return 0;
 }
 // Main function to compute OBB and draw OBB
-int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::Mat& dst) {
+int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::Mat& dst, vector<float>& features) {
     // Step 1: Get Binary Mask
     cv::Mat binaryMask;
     if (getBinaryMask(regionMap, regionID, binaryMask) != 0) {
@@ -159,14 +163,20 @@ int computeRegionFeatures(cv::Mat& regionMap, int regionID, cv::Mat& image, cv::
     cout << "  - OBB Size: (" << obb.size.width << " x " << obb.size.height << ")\n";
     cout << "  - OBB Angle: " << obb.angle << " degrees\n";
 
-    // Compute and print shape feature
-    computeRegionShapeFeatures(binaryMask, obb, regionID);
+    // NOTE: Compute and print shape feature
+    vector<float> shapeFeatures;
+    computeRegionShapeFeatures(binaryMask, obb, regionID, shapeFeatures);
 
     // Print Hu Moments (Invariant Features)
     cout << "Region " << regionID << " Hu Moments (Log Transformed):\n";
     for (size_t i = 0; i < huMoments.size(); i++) {
         cout << "    - Hu[" << i + 1 << "]: " << huMoments[i] << "\n";
     }
+    cout << " Shape size" << shapeFeatures.size() << endl;
+    // Combine features into a feature vector [hu moment,
+    features.clear();
+    features.insert(features.end(), huMoments.begin(), huMoments.end());
+    features.insert(features.end(), shapeFeatures.begin(), shapeFeatures.end());
 
     return 0;  // Success
 }
