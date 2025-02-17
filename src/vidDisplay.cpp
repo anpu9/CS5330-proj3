@@ -4,6 +4,7 @@
 //
 
 #include <opencv2/opencv.hpp>
+#include "../include/image_process.h"
 
 
 using namespace cv;
@@ -34,7 +35,10 @@ private:
     float scale_factor;             // Scaling factor for resizing
     Size targetSize;                // Target size for processed images
     const string WINDOW_VIDEO = "Live"; // Name of the video display window
+    const string WINDOW_THRESHOLD = "Thresholded"; // Name of the thresholded video window
     string editWindow;              // Name of the meme editor window
+
+    bool showThresholded = false; // Flag to indicate whether to show the thresholded video
 
     // Struct to store image data
     struct Images {
@@ -42,6 +46,8 @@ private:
         Mat blurred;      // Blurred frame
         Mat grey;         // Grayscale frame
         Mat processed;    // Processed frame based on mode
+        Mat thresholded; // Thresholded image
+
 //        Mat sobelX;       // Sobel X component
 //        Mat sobelY;       // Sobel Y component
 //        Mat magnitude;    // Gradient magnitude
@@ -109,6 +115,20 @@ private:
         }
         resize(imgs.processed, imgs.processed, targetSize);
         imshow(WINDOW_VIDEO, imgs.processed);
+
+         // Display thresholded video if the flag is true
+         if (showThresholded) {
+            Mat hsv;
+            bgr_to_hsv(imgs.frame, hsv);
+
+            // Extract the Value channel (grayscale)
+            Mat valueChannel;
+            extractChannel(hsv, valueChannel, 2);  // Value channel is at index 2
+
+            // Apply thresholding to the Value channel
+            threshold(valueChannel, imgs.thresholded);
+            imshow("HSV Thresholded", imgs.thresholded);
+        }
     }
 
     /**
@@ -119,6 +139,14 @@ private:
         switch (key) {
             case 's': saveImages(); break;
             case 'q': throw runtime_error("User exit");
+            case 'z':
+            showThresholded = !showThresholded; // Toggle thresholded video display
+            if (showThresholded) {
+                namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE); // Create the window if it doesn't exist
+            } else {
+                destroyWindow(WINDOW_THRESHOLD); // Destroy the window if it's not needed
+            }
+            break;
         }
     }
 
@@ -128,7 +156,7 @@ public:
      * @param deviceId The ID of the camera device to use.
      */
     CameraApp(int deviceId = 0) {
-        if (!cap.open(deviceId)) {
+        if (!cap.open("/dev/video2")) {                         //Replace with deviceId if needed
             throw runtime_error("Failed to open camera device " + to_string(deviceId));
         }
 
