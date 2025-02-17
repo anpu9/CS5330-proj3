@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include "../include/image_process.h"
 #include "../include/obb_feature_extraction.h"
+#include "../db/db_manager.h"
 
 using namespace cv;
 
@@ -23,10 +24,11 @@ class ImageProcessingTest : public ::testing::Test {
 protected:
     cv::Mat binaryImage;
     cv::Mat regionMap;
-
+    vector<float> features;
+    // TODO: Any prerequisite could be exectued here
     void SetUp() override {
         binaryImage = loadTestImage("example001.png");
-        int result = twoPassSegmentation8conn(binaryImage, regionMap);
+        twoPassSegmentation8conn(binaryImage, regionMap);
         ASSERT_EQ(regionMap.type(), CV_32S);
         ASSERT_GT(cv::countNonZero(regionMap), 0); // Ensure valid segmentation
         printLabel();
@@ -57,12 +59,30 @@ TEST_F(ImageProcessingTest, TwoPassSegmentationTest) {
 TEST_F(ImageProcessingTest, OBBTest) {
     int regionId = 2;
     cv::Mat dst;
-    int result = computeRegionFeatures(regionMap, regionId, binaryImage, dst);
+    vector<float> features;
+    int result = computeRegionFeatures(regionMap, regionId, binaryImage, dst, features);
 
 // Validate the function execution
     EXPECT_EQ(result, 0) << "Function failed to execute properly.";
 
 // Validate the output
     EXPECT_FALSE(dst.empty()) << "Output image is empty.";
+    EXPECT_FALSE(dst.empty()) << "Feature vector is empty.";
     EXPECT_EQ(dst.size(), binaryImage.size()) << "Output dimensions do not match input.";
+}
+
+TEST_F(ImageProcessingTest, DBWriteTest) {
+    int regionId = 2;
+    cv::Mat dst;
+    vector<float> features;
+    int result = computeRegionFeatures(regionMap, regionId, binaryImage, dst, features);
+//     Validate the function execution
+    EXPECT_EQ(result, 0) << "Function failed to execute properly.";
+
+// Validate the output
+    EXPECT_FALSE(dst.empty()) << "Output image is empty.";
+    EXPECT_FALSE(dst.empty()) << "Feature vector is empty.";
+    EXPECT_EQ(dst.size(), binaryImage.size()) << "Output dimensions do not match input.";
+    // Write to DB
+
 }
