@@ -84,25 +84,34 @@ private:
         imshow(WINDOW_VIDEO, imgs.frame);
 
         // Update threshold window if it's open
-        if (currentMode == Mode::THRESHOLD || currentMode == Mode::MORPHOLOGICAL) {
+        // Convert to HSV and extract value channel if any dependent mode is active
+        bool needsThresholding = (currentMode == Mode::THRESHOLD ||
+                                  currentMode == Mode::MORPHOLOGICAL ||
+                                  currentMode == Mode::OBB);
+
+        if (needsThresholding) {
             bgr_to_hsv(imgs.frame, imgs.hsv);
             extractChannel(imgs.hsv, imgs.valueChannel, 2);
             threshold(imgs.valueChannel, imgs.thresholded);
+        }
+
+        // Show threshold window if needed
+        if (currentMode == Mode::THRESHOLD || currentMode == Mode::MORPHOLOGICAL) {
             imshow(WINDOW_THRESHOLD, imgs.thresholded);
         }
 
-        // Update morphological window if it's open
-        if (currentMode == Mode::MORPHOLOGICAL) {
+        // Apply morphological filtering if required
+        if (currentMode == Mode::MORPHOLOGICAL || currentMode == Mode::OBB) {
             applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
+        }
+
+        // Show morphological window if in MORPHOLOGICAL mode
+        if (currentMode == Mode::MORPHOLOGICAL) {
             imshow(WINDOW_MORPH, imgs.morp);
         }
 
-        // update OBB features window if it's open
+        // Process OBB features if in OBB mode
         if (currentMode == Mode::OBB) {
-            bgr_to_hsv(imgs.frame, imgs.hsv);
-            extractChannel(imgs.hsv, imgs.valueChannel, 2);
-            threshold(imgs.valueChannel, imgs.thresholded);
-            applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
             twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
             computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, features);
         }
