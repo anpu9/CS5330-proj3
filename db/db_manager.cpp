@@ -58,7 +58,7 @@ int DBManager::loadFeatureVectors(std::vector<std::pair<std::string, std::vector
         std::vector<float> featureVector;
 
         if (doc["type"] && doc["type"].type() == bsoncxx::type::k_string) {
-            label = doc["type"].get_string().value;
+            label = std::string(doc["type"].get_string().value); // fix: boost string error
         } else {
             cerr << "Error: 'type' field missing or incorrect type!" << endl;
             continue;
