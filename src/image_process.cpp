@@ -160,13 +160,46 @@ void threshold(const Mat& src, Mat& dst) {
 
         for (int x = 0; x < src.cols; x++) {
            // Apply threshold using pointers for direct access
-
             dst_row[x] = (src_row[x] > thresholdValue) ? 255 : 0;
         }
     }
-
-    cout << "ISODATA converged after " << iteration << " iterations, threshold = " << thresholdValue << endl;
 }
+
+// Clean up your thresholded image with morphological filtering
+void applyMorphologicalFiltering(const Mat& src, Mat& dst) {
+    // 1. Validation of image data (the source file)
+    if (src.empty() || src.type() != CV_8UC1) {
+        cerr << "Error: Source invalid" << endl;
+        return;
+    }
+
+    // 2. Destination Creation
+    dst = src.clone();
+
+    // 3. Assign structure and structure value. Based on the comments, the size is set to "1", this number was arrived at after multiple tests.
+    int morph_size = 1;
+    int elementHeight = 2 * morph_size + 1;
+    int elementWidth = 2 * morph_size + 1;
+    Mat element = getStructuringElement(
+        MORPH_RECT, Size(elementWidth, elementHeight), Point(morph_size, morph_size));
+
+    // 4. Loop through the array and generate the new morph matrix
+    for (int y = morph_size; y < src.rows - morph_size; ++y) {
+        for (int x = morph_size; x < src.cols - morph_size; ++x) {
+            //Apply structuring element
+            int local_min = 255;
+            for (int i = -morph_size; i <= morph_size; ++i) {
+                for (int j = -morph_size; j <= morph_size; ++j) {
+                    local_min = min(local_min, (int)src.at<uchar>(y + i, x + j));
+                }
+            }
+
+            //Erode and create image
+            dst.at<uchar>(y, x) = local_min;
+        }
+    }
+}
+
 
 // Find function for Union-Find (Path Compression), return the root
 int find(vector<int>& parent, int x) {

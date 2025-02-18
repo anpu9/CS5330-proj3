@@ -18,7 +18,7 @@ void bgr_to_hsv(const Mat& src, Mat& dst);
 void threshold(const Mat& src, Mat& dst);
 
 // Clean up your thresholded image with morphological filtering
-int morphologicalFilter(const Mat& src, Mat& dst);
+void applyMorphologicalFiltering(const Mat& src, Mat& dst);
 
 // Two-pass segmentation the image into regions ignoring area smaller than minRegionSize, with 4-connectivity
 int two_pass_segmentation_4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize = 50);

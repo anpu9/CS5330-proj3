@@ -36,6 +36,7 @@ Proj3/
 - **Example**:
   ```bash
   Task 1 - Press 'z' to display thresholded window (BGR -> HSV -> k-means algorithm)
+  Task 2 - Press 'f' after 'z' to display morphological filter window
 
 #### **Google_test_run**
 

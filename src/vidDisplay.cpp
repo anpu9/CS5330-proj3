@@ -1,11 +1,6 @@
-//
-// Created by Yuyang Tian on 2025/1/15.
-// For displaying live video with filters
-//
-
+#include <iostream>
 #include <opencv2/opencv.hpp>
-#include "../include/image_process.h"
-
+#include "../include/image_process.h" // Include the header file
 
 using namespace cv;
 using namespace std;
@@ -14,47 +9,31 @@ class CameraApp {
 private:
     // Modes for image processing
     enum class Mode {
-        NORMAL,      // Default mode
-        GREY,        // OpenCV grayscale
-        BLUR,        // Apply blur
-//        SOBEL_X,     // Sobel filter (X-direction)
-//        SOBEL_Y,     // Sobel filter (Y-direction)
-//        MAGNITUDE,   // Gradient magnitude
-//        QUAN,        // Quantization
-//        FACE_DECT,   // Face detection
-//        FOG,         // Apply fog effect
-//        BG_BLUR,     // Background blur
-//        BG_GREY,     // Background grayscale
+        NORMAL,         // Default mode - displays the normal image
+        THRESHOLD,      // Apply threshold
+        MORPHOLOGICAL   // Apply Morphological Filtering
     };
 
-    // Member variables
-    VideoCapture cap;               // Video capture object
-    const string OUTPUT_DIR = "../outputs/"; // Directory for saving outputs
-    int imageId = 0;                // Counter for saved images
-    Mode currentMode = Mode::NORMAL; // Current processing mode
-    float scale_factor;             // Scaling factor for resizing
-    Size targetSize;                // Target size for processed images
-    const string WINDOW_VIDEO = "Live"; // Name of the video display window
-    const string WINDOW_THRESHOLD = "Thresholded"; // Name of the thresholded video window
-    string editWindow;              // Name of the meme editor window
+    // Constants for window names
+    const string WINDOW_VIDEO = "Live";
+    const string WINDOW_THRESHOLD = "HSV Thresholded";
+    const string WINDOW_MORPH = "Morphological";
 
-    bool showThresholded = false; // Flag to indicate whether to show the thresholded video
+    // Member variables
+    VideoCapture cap;           // Video capture object
+    const string OUTPUT_DIR = "../outputs/";  // Directory for saving outputs
+    int imageId = 0;            // Counter for saved images
+    Mode currentMode = Mode::NORMAL;   // Current processing mode
+    float scale_factor;         // Scaling factor for resizing
+    Size targetSize;            // Target size for processed images
 
     // Struct to store image data
     struct Images {
-        Mat frame;        // Original frame
-        Mat blurred;      // Blurred frame
-        Mat grey;         // Grayscale frame
-        Mat processed;    // Processed frame based on mode
-        Mat thresholded; // Thresholded image
-
-//        Mat sobelX;       // Sobel X component
-//        Mat sobelY;       // Sobel Y component
-//        Mat magnitude;    // Gradient magnitude
-//        Mat quantized;    // Quantized frame
-//        Rect last;        // Last detected region for smoothing
-//        Mat depthMap;     // Depth map for fog effect
-//        vector<Rect> faces; // Detected faces
+        Mat frame;          // Original frame
+        Mat hsv;            // HSV frame
+        Mat valueChannel;   // Value channel of HSV
+        Mat thresholded;    // Thresholded image
+        Mat morp;           // Morphological filtered image
     } imgs;
 
     /**
@@ -69,65 +48,33 @@ private:
 
     /**
      * @brief Saves the current frame and processed frame to disk.
-     *
-     * Includes logic to save different versions of the frame
-     * depending on the current processing mode. Launches the
-     * meme editor if applicable.
      */
     void saveImages() {
         string suffix;
         imwrite(generateFilename(), imgs.frame);
-        if (currentMode != Mode::NORMAL) {
-            // Generate suffix based on mode
-            switch (currentMode) {
-                case Mode::GREY: suffix = "-gray"; break;
-//                case Mode::ALTER_GREY: suffix = "-Agray"; break;
-//                case Mode::BLUR: suffix = "-blurred"; break;
-//                case Mode::SOBEL_X: suffix = "-sobelX"; break;
-//                case Mode::SOBEL_Y: suffix = "-sobelY"; break;
-//                case Mode::MAGNITUDE: suffix = "-magnitude"; break;
-//                case Mode::QUAN: suffix = "-quantization"; break;
-//                case Mode::FACE_DECT: suffix = "-faceDetect"; break;
-//                case Mode::FOG: suffix = "-fog"; break;
-//                case Mode::BG_BLUR: suffix = "-bgBlur"; break;
-//                case Mode::BG_GREY: suffix = "-bgGrey"; break;
-                default: break;
-            }
-            imwrite(generateFilename("Task", suffix), imgs.processed);
-        }
         cout << "Saved image " << ++imageId << endl;
     }
 
     /**
-     * @brief Applies the current filter to the captured frame.
+     * @brief Applies the current filter to the captured frame based on mode
      */
     void processFrame() {
-        switch (currentMode) {
-            case Mode::GREY:
-                cvtColor(imgs.frame, imgs.processed, COLOR_BGR2GRAY);
-                break;
-            case Mode::BLUR:
-//                blur5x5_2(imgs.frame, imgs.processed);
-                break;
-            default:
-                imgs.frame.copyTo(imgs.processed);
-                break;
+        // Always update the live video window
+        resize(imgs.frame, imgs.frame, targetSize);
+        imshow(WINDOW_VIDEO, imgs.frame);
+
+        // Update threshold window if it's open
+        if (currentMode == Mode::THRESHOLD || currentMode == Mode::MORPHOLOGICAL) {
+            bgr_to_hsv(imgs.frame, imgs.hsv);
+            extractChannel(imgs.hsv, imgs.valueChannel, 2);
+            threshold(imgs.valueChannel, imgs.thresholded);
+            imshow(WINDOW_THRESHOLD, imgs.thresholded);
         }
-        resize(imgs.processed, imgs.processed, targetSize);
-        imshow(WINDOW_VIDEO, imgs.processed);
 
-         // Display thresholded video if the flag is true
-         if (showThresholded) {
-            Mat hsv;
-            bgr_to_hsv(imgs.frame, hsv);
-
-            // Extract the Value channel (grayscale)
-            Mat valueChannel;
-            extractChannel(hsv, valueChannel, 2);  // Value channel is at index 2
-
-            // Apply thresholding to the Value channel
-            threshold(valueChannel, imgs.thresholded);
-            imshow("HSV Thresholded", imgs.thresholded);
+        // Update morphological window if it's open
+        if (currentMode == Mode::MORPHOLOGICAL) {
+            applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
+            imshow(WINDOW_MORPH, imgs.morp);
         }
     }
 
@@ -137,16 +84,29 @@ private:
      */
     void handleKeyPress(char key) {
         switch (key) {
-            case 's': saveImages(); break;
-            case 'q': throw runtime_error("User exit");
+            case 's':
+                saveImages();
+                break;
+            case 'q':
+                throw runtime_error("User exit");
             case 'z':
-            showThresholded = !showThresholded; // Toggle thresholded video display
-            if (showThresholded) {
-                namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE); // Create the window if it doesn't exist
-            } else {
-                destroyWindow(WINDOW_THRESHOLD); // Destroy the window if it's not needed
-            }
-            break;
+                if (currentMode != Mode::THRESHOLD) {
+                    currentMode = Mode::THRESHOLD;
+                    namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE);
+                } else {
+                    currentMode = Mode::NORMAL;
+                    destroyWindow(WINDOW_THRESHOLD);
+                }
+                break;
+            case 'f':
+                if (currentMode == Mode::THRESHOLD) {
+                    currentMode = Mode::MORPHOLOGICAL;
+                    namedWindow(WINDOW_MORPH, WINDOW_AUTOSIZE);
+                } else if (currentMode == Mode::MORPHOLOGICAL) {
+                    currentMode = Mode::THRESHOLD;
+                    destroyWindow(WINDOW_MORPH);
+                }
+                break;
         }
     }
 
@@ -156,44 +116,37 @@ public:
      * @param deviceId The ID of the camera device to use.
      */
     CameraApp(int deviceId = 0) {
-        if (!cap.open("/dev/video2")) {                         //Replace with deviceId if needed
+        if (!cap.open("/dev/video2")) { //Replace with deviceId if needed
             throw runtime_error("Failed to open camera device " + to_string(deviceId));
         }
 
         Size frameSize(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT));
         const float reduction = 0.8;
         scale_factor = 256.0 / (frameSize.height * reduction);
-
         targetSize.width = frameSize.width * scale_factor;
         targetSize.height = frameSize.height * scale_factor;
+        cout << "Camera initialized with resolution: " << targetSize.width << "x" << targetSize.height
+             << endl;
 
-        cout << "Camera initialized with resolution: " << targetSize.width << "x" << targetSize.height << endl;
+        // Initialize main window
+        namedWindow(WINDOW_VIDEO, WINDOW_AUTOSIZE);
     }
 
     /**
      * @brief Main application loop.
-     *
-     * Continuously captures video frames, applies processing,
-     * and responds to user input until the application exits.
      */
     void run() {
         cout << "Controls:\n"
-             << "  's' - Save photo\n"
-             << "  'g' - Toggle OpenCV grayscale\n"
-             << "  'h' - Toggle custom grayscale\n"
-             << "  'b' - Toggle blur\n"
-             << "  'x' - Toggle Sobel X\n"
-             << "  'y' - Toggle Sobel Y\n"
-             << "  'm' - Toggle Magnitude\n"
-             << "  'f' - Toggle face detection\n"
-             << "  'o' - Toggle fog effect\n"
-             << "  'q' - Quit\n";
-
+             << " 's' - Save photo\n"
+             << " 'z' - Toggle Thresholding\n"
+             << " 'f' - Toggle Morphological window\n"
+             << " 'q' - Quit\n";
         try {
             while (true) {
                 if (!cap.read(imgs.frame)) {
                     throw runtime_error("Failed to capture frame");
                 }
+
                 processFrame();
                 int key = waitKey(10);
                 if (key != -1) {
