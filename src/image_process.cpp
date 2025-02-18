@@ -226,7 +226,7 @@ void connect(vector<int>& parent, int x, int y) {
  * @param minRegionSize Minimum size to keep a region.
  * @return -1 failure, 0 success
  */
-int two_pass_segmentation_4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
+int twoPassSegmentation4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
     if (binaryImage.empty()) {
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;
@@ -291,9 +291,9 @@ int two_pass_segmentation_4conn(const Mat& binaryImage, Mat& regionMap, int minR
  * @param binaryImage Input binary image (CV_8U).
  * @param regionMap Labeled region map (CV_32S).
  * @param minRegionSize Minimum size to keep a region.
- * @return -1 failure, 0 success
+ * @return -1 failure, success return number of regions
  */
-int two_pass_segmentation_8conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
+int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize) {
     if (binaryImage.empty()) {
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;
@@ -352,7 +352,25 @@ int two_pass_segmentation_8conn(const Mat& binaryImage, Mat& regionMap, int minR
             }
         }
     }
-    return 0;
+    // Reassign labels to be sequential (1,2,3...)
+    unordered_map<int, int> relabelMap;
+    int newLabel = 1;
+    for (const auto& kv : labelCount) {
+        if (kv.first > 0 && kv.second >= minRegionSize) {
+            relabelMap[kv.first] = newLabel++;
+        }
+    }
+
+    // Apply new labels
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (regionMap.at<int>(i, j) > 0) {
+                regionMap.at<int>(i, j) = relabelMap[regionMap.at<int>(i, j)];
+            }
+        }
+    }
+
+    return newLabel - 1; // Return number of valid regions
 }
 // Helper function to visualize the segmentation result
 int colorizeRegions(const cv::Mat& labelMap, Mat& colorImage) {
