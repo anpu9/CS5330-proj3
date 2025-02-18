@@ -1,6 +1,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "../include/image_process.h" // Include the header file
+#include "../include/image_process.h"
+#include "../include/obb_feature_extraction.h"
 
 using namespace cv;
 using namespace std;
@@ -11,7 +12,8 @@ private:
     enum class Mode {
         NORMAL,         // Default mode - displays the normal image
         THRESHOLD,      // Apply threshold
-        MORPHOLOGICAL   // Apply Morphological Filtering
+        MORPHOLOGICAL,   // Apply Morphological Filtering
+        OBB, // apply all threshold, Morphological Filtering, segmentation, OBB computation
     };
 
     // Constants for window names
@@ -26,6 +28,7 @@ private:
     Mode currentMode = Mode::NORMAL;   // Current processing mode
     float scale_factor;         // Scaling factor for resizing
     Size targetSize;            // Target size for processed images
+    vector<float> features;     // Region features of the current object
 
     // Struct to store image data
     struct Images {
@@ -34,6 +37,8 @@ private:
         Mat valueChannel;   // Value channel of HSV
         Mat thresholded;    // Thresholded image
         Mat morp;           // Morphological filtered image
+        Mat regionMap;      // Store segment region id
+        Mat obb;            // Original frame with OBB overlay
     } imgs;
 
     /**
@@ -50,9 +55,24 @@ private:
      * @brief Saves the current frame and processed frame to disk.
      */
     void saveImages() {
-        string suffix;
         imwrite(generateFilename(), imgs.frame);
-        cout << "Saved image " << ++imageId << endl;
+        cout << "Saved normal image " << ++imageId << endl;
+        // Save other frames if they exist
+        switch (currentMode) {
+            case Mode::MORPHOLOGICAL:
+                imwrite(generateFilename("Task1", "THRESHOLD"), imgs.thresholded);
+                cout << "Saved thresholded image " << ++imageId << endl;
+                imwrite(generateFilename("Task2", "MORPHOLOGICAL"), imgs.morp);
+                cout << "Saved morp image " << ++imageId << endl;
+                break;
+            case Mode::THRESHOLD:
+                imwrite(generateFilename("Task1", "THRESHOLD"), imgs.thresholded);
+                cout << "Saved thresholded image " << ++imageId << endl;
+                break;
+            default:
+                // No additional images to save
+                break;
+        }
     }
 
     /**
@@ -75,6 +95,16 @@ private:
         if (currentMode == Mode::MORPHOLOGICAL) {
             applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
             imshow(WINDOW_MORPH, imgs.morp);
+        }
+
+        // update OBB features window if it's open
+        if (currentMode == Mode::OBB) {
+            bgr_to_hsv(imgs.frame, imgs.hsv);
+            extractChannel(imgs.hsv, imgs.valueChannel, 2);
+            threshold(imgs.valueChannel, imgs.thresholded);
+            applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
+            twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
+            computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, features);
         }
     }
 
@@ -107,6 +137,13 @@ private:
                     destroyWindow(WINDOW_MORPH);
                 }
                 break;
+            case 't':
+                currentMode = Mode::OBB;
+                break;
+            case 'n':
+                if (currentMode == Mode::OBB) {
+                    // TODO: Add new features
+                }
         }
     }
 
@@ -116,7 +153,7 @@ public:
      * @param deviceId The ID of the camera device to use.
      */
     CameraApp(int deviceId = 0) {
-        if (!cap.open("/dev/video2")) { //Replace with deviceId if needed
+        if (!cap.open(deviceId)) { //Replace with deviceId if needed
             throw runtime_error("Failed to open camera device " + to_string(deviceId));
         }
 
@@ -137,6 +174,9 @@ public:
      */
     void run() {
         cout << "Controls:\n"
+        // TODO: traning mode
+             << " 't' - Toggle traning mode\n"
+             << " 'n' - add new features within traning mode\n"
              << " 's' - Save photo\n"
              << " 'z' - Toggle Thresholding\n"
              << " 'f' - Toggle Morphological window\n"

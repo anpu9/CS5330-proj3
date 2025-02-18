@@ -21,10 +21,11 @@ void threshold(const Mat& src, Mat& dst);
 void applyMorphologicalFiltering(const Mat& src, Mat& dst);
 
 // Two-pass segmentation the image into regions ignoring area smaller than minRegionSize, with 4-connectivity
-
 int twoPassSegmentation4conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize = 50);
+
 // Two-pass segmentation the image into regions ignoring area smaller than minRegionSize, with 8-connectivity
 int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegionSize = 50);
+
 // Helper function to visualize the segmentation result
 int colorizeRegions(const cv::Mat& labelMap, Mat& colorImage);
 

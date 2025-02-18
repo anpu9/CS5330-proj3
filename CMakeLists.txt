@@ -54,6 +54,7 @@ endfunction()
 add_opencv_executable(VidDisplay
         src/vidDisplay.cpp
         src/image_process.cpp
+        src/obb_feature_extraction.cpp
 )
 
 # 🔹 Add test executable
