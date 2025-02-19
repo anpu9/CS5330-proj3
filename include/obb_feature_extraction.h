@@ -1,7 +1,7 @@
 /*
- * Authors: ${AUTHORS}
+ * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/14
- * Purpose: computing Rotation, translation, scale invariant features of a bounding box.
+ * Purpose: Header file for OBB feature extraction
  */
 
 #ifndef PROJ3_OBB_FEATURE_EXTRACTION_H

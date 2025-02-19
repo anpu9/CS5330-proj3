@@ -1,7 +1,7 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/16
- * Purpose: ${PURPOSE}
+ * Purpose: Configuration for MongoDB connection
  */
 
 #include "db_config.h"

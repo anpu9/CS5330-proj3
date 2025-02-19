@@ -1,5 +1,5 @@
 /*
- * Authors: Yuyang Tian and Arun Merkkad
+ * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/14
  * Purpose: A data pipeline to process image for object detection
  */
