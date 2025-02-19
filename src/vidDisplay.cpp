@@ -93,43 +93,26 @@ private:
         // Always update the live video window
         resize(imgs.frame, imgs.frame, targetSize);
         imshow(WINDOW_VIDEO, imgs.frame);
-
-        // Update threshold window if it's open
-        // Convert to HSV and extract value channel if any dependent mode is active
-        bool needsThresholding = currentMode != Mode::NORMAL;
-
-        if (needsThresholding) {
+    
+        // Process and display based on current mode
+        if (currentMode >= Mode::THRESHOLD) {
             bgr_to_hsv(imgs.frame, imgs.hsv);
             extractChannel(imgs.hsv, imgs.valueChannel, 2);
             threshold(imgs.valueChannel, imgs.thresholded);
-        }
-
-        // Show threshold window if needed
-        if (currentMode == Mode::THRESHOLD) {
             imshow(WINDOW_THRESHOLD, imgs.thresholded);
         }
-
-        // Apply morphological filtering if required
-        if (currentMode == Mode::MORPHOLOGICAL || currentMode == Mode::COLOR_SEG ||currentMode == Mode::OBB) {
+    
+        if (currentMode >= Mode::MORPHOLOGICAL) {
             applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
-        }
-
-        // Show morphological window if in MORPHOLOGICAL mode
-        if (currentMode == Mode::MORPHOLOGICAL) {
             imshow(WINDOW_MORPH, imgs.morp);
         }
-
-        // Apply two pass segmentation if required
-        if (currentMode == Mode::OBB || currentMode == Mode::COLOR_SEG) {
+    
+        if (currentMode >= Mode::COLOR_SEG) {
             twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
-        }
-
-        // Show colored region window if in COLOR_SEG mode
-        if (currentMode == Mode::COLOR_SEG) {
             colorizeRegions(imgs.regionMap, imgs.colorizedRegions);
             imshow(WINDOW_SEG, imgs.colorizedRegions);
         }
-
+    
         // Compute OBB and feature if in OBB mode
         if (currentMode == Mode::OBB) {
             computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, imgs.features);
@@ -154,7 +137,7 @@ private:
                 exit(0);
                 break;
             case 'z':
-                if (currentMode != Mode::THRESHOLD) {
+                if (currentMode < Mode::THRESHOLD) {
                     currentMode = Mode::THRESHOLD;
                     namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE);
                 } else {
@@ -163,21 +146,21 @@ private:
                 }
                 break;
             case 'f':
-                if (currentMode == Mode::THRESHOLD) {
+                if (currentMode < Mode::MORPHOLOGICAL) {
                     currentMode = Mode::MORPHOLOGICAL;
                     namedWindow(WINDOW_MORPH, WINDOW_AUTOSIZE);
-                } else if (currentMode == Mode::MORPHOLOGICAL) {
-                    currentMode = Mode::THRESHOLD;
-                    destroyWindow(WINDOW_MORPH);
+                } else if (currentMode > Mode::MORPHOLOGICAL) {
+                    currentMode = Mode::MORPHOLOGICAL;
+                    destroyWindow(WINDOW_SEG);
                 }
                 break;
             case 'c':
-                if (currentMode == Mode::COLOR_SEG) {
-                    currentMode = Mode::NORMAL;
-                    destroyWindow(WINDOW_SEG);  // Close OBB window when exiting
-                } else {
+                if (currentMode < Mode::COLOR_SEG) {
                     currentMode = Mode::COLOR_SEG;
-                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);  // Recreate window if needed
+                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);
+                } else {
+                    currentMode = Mode::MORPHOLOGICAL;
+                    destroyWindow(WINDOW_SEG);
                 }
                 break;
             case 't':
@@ -211,7 +194,13 @@ public:
      * @brief Constructor to initialize the CameraApp.
      * @param deviceId The ID of the camera device to use.
      */
-    CameraApp(int deviceId = 0) {
+    CameraApp(int deviceId = 0, bool trainingMode = false) {
+        if(!trainingMode) {
+            cout << "Training mode is off" << endl;
+            throw runtime_error("Training mode is off");
+        } else {
+            cout << "Training mode is on" << endl;
+        }
         if (!cap.open(deviceId)) { //Replace with deviceId if needed
             throw runtime_error("Failed to open camera device " + to_string(deviceId));
         }
@@ -265,9 +254,13 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
-        CameraApp app(0);  // Use 0 for external camera, 1 for default camera
+        bool trainingMode = false;
+        if (argc > 1 && string(argv[1]) == "--train") {
+            trainingMode = true;
+        }
+        CameraApp app(2, trainingMode); // Pass trainingMode to constructor
         app.run();
         return 0;
     } catch (const exception& e) {
