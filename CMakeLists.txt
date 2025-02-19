@@ -7,11 +7,11 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-# #  Add Google Test (Using the Submodule)
-# # Ensure submodule is properly added and initialized
-# set(GTEST_DIR ${CMAKE_SOURCE_DIR}/Google_tests/lib)
-# add_subdirectory(${GTEST_DIR})  # Add the submodule
-# include_directories(${GTEST_DIR}/googletest/include ${GTEST_DIR}/googlemock/include)
+ #  Add Google Test (Using the Submodule)
+ # Ensure submodule is properly added and initialized
+ set(GTEST_DIR ${CMAKE_SOURCE_DIR}/Google_tests/lib)
+ add_subdirectory(${GTEST_DIR})  # Add the submodule
+ include_directories(${GTEST_DIR}/googletest/include ${GTEST_DIR}/googlemock/include)
 
 # Add MongoDB
 find_package(PkgConfig REQUIRED)
@@ -20,8 +20,7 @@ pkg_check_modules(BSONCXX REQUIRED libbsoncxx)
 
 include_directories(${MONGOCXX_INCLUDE_DIRS} ${BSONCXX_INCLUDE_DIRS})
 link_directories(${MONGOCXX_LIBRARY_DIRS} ${BSONCXX_LIBRARY_DIRS})
-# Link directories manually
-link_directories(/usr/local/lib)
+
 
 #  Function to add OpenCV-only executables
 function(add_opencv_executable exe_name)
@@ -36,7 +35,7 @@ endfunction()
 # endfunction()
 
 # Function to add Executables (MongoDB + OpenCV + GoogleTest)
-function(add_db_executable test_name)
+function(add_db_test_executable test_name)
     add_executable(${test_name} ${ARGN})
     target_link_libraries(${test_name} PRIVATE
             ${OpenCV_LIBS}      # OpenCV support
@@ -50,14 +49,30 @@ function(add_db_executable test_name)
     )
 endfunction()
 
+function(add_db_executable test_name)
+    add_executable(${test_name} ${ARGN})
+    target_link_libraries(${test_name} PRIVATE
+            ${OpenCV_LIBS}      # OpenCV support
+            mongocxx bsoncxx    # MongoDB C++ driver
+    )
+    target_include_directories(${test_name} PRIVATE
+            ${OpenCV_INCLUDE_DIRS}
+            ${MONGOCXX_INCLUDE_DIRS}
+            ${BSONCXX_INCLUDE_DIRS}
+    )
+endfunction()
+
 # 🔹 Add OpenCV executable
-add_opencv_executable(VidDisplay
+add_db_executable(VidDisplay
         src/vidDisplay.cpp
         src/image_process.cpp
+        src/obb_feature_extraction.cpp
+        db/db_manager.cpp
+        db/db_config.cpp
 )
 
 # 🔹 Add test executable
-add_db_executable(Google_test_run
+add_db_test_executable(Google_test_run
         tests/test_image_process.cpp  # Adjust the path to your test file
         src/image_process.cpp
         src/obb_feature_extraction.cpp

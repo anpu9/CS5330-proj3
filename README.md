@@ -37,7 +37,9 @@ Proj3/
   ```bash
   Task 1 - Press 'z' to display thresholded window (BGR -> HSV -> k-means algorithm)
   Task 2 - Press 'f' after 'z' to display morphological filter window
-
+  Task 3 - Press 'c'
+  Task 4 - Press 't' into traning mode
+  Task 5 - Press 'n' after 't' to create a new feature vector into DB
 #### **Google_test_run**
 
 - **Description**: Unit test using google-test
@@ -49,5 +51,5 @@ Proj3/
 - **Example**:
   ```bash
   
-  ./Google_test_run --gtest_filter="*ImageProcessTest.TwoPassSegmentationTest*"
+  ./Google_test_run --gtest_filter="*ImageProcessingTest.TwoPassSegmentationTest*"
   ```
