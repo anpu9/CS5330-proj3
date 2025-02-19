@@ -14,6 +14,7 @@ private:
         NORMAL,         // Default mode - displays the normal image
         THRESHOLD,      // Apply threshold
         MORPHOLOGICAL,   // Apply Morphological Filtering
+        COLOR_SEG,   // Apply Two-pass segmentation with color
         OBB, // apply all threshold, Morphological Filtering, segmentation, OBB computation
     };
 
@@ -22,6 +23,7 @@ private:
     const string WINDOW_THRESHOLD = "HSV Thresholded";
     const string WINDOW_MORPH = "Morphological";
     const string WINDOW_OBB = "OBB over image";
+    const string WINDOW_SEG = "Colored segmentation - 8 connectivity";
 
     // Member variables
     VideoCapture cap;           // Video capture object
@@ -44,7 +46,8 @@ private:
         Mat valueChannel;   // Value channel of HSV
         Mat thresholded;    // Thresholded image
         Mat morp;           // Morphological filtered image
-        Mat regionMap;      // Store segment region id
+        Mat regionMap;      // Store segment region map
+        Mat colorizedRegions; // Colored regionMap
         Mat obb;            // Original frame with OBB overlay
         vector<float> features;     // Region features of the current object
     } imgs;
@@ -93,9 +96,7 @@ private:
 
         // Update threshold window if it's open
         // Convert to HSV and extract value channel if any dependent mode is active
-        bool needsThresholding = (currentMode == Mode::THRESHOLD ||
-                                  currentMode == Mode::MORPHOLOGICAL ||
-                                  currentMode == Mode::OBB);
+        bool needsThresholding = currentMode != Mode::NORMAL;
 
         if (needsThresholding) {
             bgr_to_hsv(imgs.frame, imgs.hsv);
@@ -104,12 +105,12 @@ private:
         }
 
         // Show threshold window if needed
-        if (currentMode == Mode::THRESHOLD || currentMode == Mode::MORPHOLOGICAL) {
+        if (currentMode == Mode::THRESHOLD) {
             imshow(WINDOW_THRESHOLD, imgs.thresholded);
         }
 
         // Apply morphological filtering if required
-        if (currentMode == Mode::MORPHOLOGICAL || currentMode == Mode::OBB) {
+        if (currentMode == Mode::MORPHOLOGICAL || currentMode == Mode::COLOR_SEG ||currentMode == Mode::OBB) {
             applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
         }
 
@@ -118,12 +119,23 @@ private:
             imshow(WINDOW_MORPH, imgs.morp);
         }
 
-        // Process OBB imgs.features if in OBB mode
-        if (currentMode == Mode::OBB) {
+        // Apply two pass segmentation if required
+        if (currentMode == Mode::OBB || currentMode == Mode::COLOR_SEG) {
             twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
+        }
+
+        // Show colored region window if in COLOR_SEG mode
+        if (currentMode == Mode::COLOR_SEG) {
+            colorizeRegions(imgs.regionMap, imgs.colorizedRegions);
+            imshow(WINDOW_SEG, imgs.colorizedRegions);
+        }
+
+        // Compute OBB and feature if in OBB mode
+        if (currentMode == Mode::OBB) {
             computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, imgs.features);
             imshow(WINDOW_OBB, imgs.obb);
         }
+
     }
 
     /**
@@ -159,6 +171,15 @@ private:
                     destroyWindow(WINDOW_MORPH);
                 }
                 break;
+            case 'c':
+                if (currentMode == Mode::COLOR_SEG) {
+                    currentMode = Mode::NORMAL;
+                    destroyWindow(WINDOW_SEG);  // Close OBB window when exiting
+                } else {
+                    currentMode = Mode::COLOR_SEG;
+                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);  // Recreate window if needed
+                }
+                break;
             case 't':
                 if (currentMode == Mode::OBB) {
                     currentMode = Mode::NORMAL;
@@ -171,10 +192,17 @@ private:
             case 'n':
                 if (currentMode == Mode::OBB) {
                     string label;
-                    cout << "Please enter the feature for the object: ";
-                    cin >> label;
+                    cout << "Please enter the type label for the object: ";
+                    getline(cin, label);  // Read entire line
+                    // Trim trailing spaces
+                    size_t end = label.find_last_not_of(" \t\r\n");
+                    if (end != string::npos) {
+                        label = label.substr(0, end + 1);
+                    }
+
                     db.writeFeatureVector(label, imgs.features);
                 }
+                break;
         }
     }
 
@@ -207,12 +235,12 @@ public:
      */
     void run() {
         cout << "Controls:\n"
-        // TODO: write into new features
-             << " 't' - Toggle traning mode\n"
-             << " 'n' - add new features within traning mode\n"
              << " 's' - Save photo\n"
              << " 'z' - Toggle Thresholding\n"
              << " 'f' - Toggle Morphological window\n"
+             << " 'c' - Toggle Colored segmented region window\n"
+             << " 't' - Toggle traning mode\n"
+             << " 'n' - add new features within traning mode\n"
              << " 'q' - Quit\n";
         try {
             while (true) {
