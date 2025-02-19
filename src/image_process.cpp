@@ -231,60 +231,92 @@ int twoPassSegmentation4conn(const Mat& binaryImage, Mat& regionMap, int minRegi
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;
     }
-    if (binaryImage.type() != CV_8UC1) { // check if it's a binary image
+    if (binaryImage.type() != CV_8UC1) { // Ensure it's a binary image
         cerr << "ERROR: two_pass_segmentation - not Binary image" << endl;
         return -1;
     }
+
     int rows = binaryImage.rows, cols = binaryImage.cols;
-    regionMap = Mat::zeros(rows, cols, CV_32S); // Initialize region map
-    vector<int> parent(1,0); // Initialize the parent array, start with label 0
-    int nextLabel = 1;
+    regionMap = Mat::zeros(rows, cols, CV_32S); // Initialize output matrix
 
-    // First pass: assign provisional labels and record equivalences
+    vector<int> parent(1, 0);  // Union-Find parent array
+    int nextLabel = 1;         // Label counter
+
+    // ** First Pass: Label Assignment & Union-Find **
     for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
+        const uchar* binaryRow = binaryImage.ptr<uchar>(i);
+
         for (int j = 0; j < cols; j++) {
-            if (binaryImage.at<uchar>(i, j) == 0) continue; // Ignore the background
+            if (binaryRow[j] == 0) continue; // Skip background
 
-            vector<int> neighbors; // storing neighbors' label
+            // Get neighboring labels (Avoid unnecessary vector operations)
+            int left = (j > 0) ? regionRow[j - 1] : 0;
+            int top = (i > 0) ? regionMap.ptr<int>(i - 1)[j] : 0;
 
-            // Check neighbor in prior row and col
-            if (j > 0 && regionMap.at<int>(i,j-1) > 0) { neighbors.push_back(regionMap.at<int>(i,j-1));} // left
-            if (j > 0 && regionMap.at<int>(i-1,j) > 0) { neighbors.push_back(regionMap.at<int>(i-1,j));} // top
+            // Find the smallest nonzero neighbor label
+            int minLabel = INT_MAX;
+            if (left) minLabel = min(minLabel, left);
+            if (top) minLabel = min(minLabel, top);
 
-            if (neighbors.empty()) { // NO neighbor: assign a new label
-                regionMap.at<int>(i, j) = nextLabel;
+            if (minLabel == INT_MAX) { // No neighbors, assign a new label
+                regionRow[j] = nextLabel;
                 parent.push_back(nextLabel);
                 nextLabel++;
-            } else { // assign the min label
-                int minLabel = *min_element(neighbors.begin(), neighbors.end());
-                regionMap.at<int>(i, j) = minLabel;
-                // Compress path: union all neighbors in set
-                for (int label : neighbors) {
-                    connect(parent, label, minLabel);
-                }
+            } else { // Assign the smallest existing label
+                regionRow[j] = minLabel;
+                // Merge equivalences
+                if (left) connect(parent, left, minLabel);
+                if (top) connect(parent, top, minLabel);
             }
         }
     }
 
-    // Second pass: resolve label equivalences
-    unordered_map<int, int> labelCount;
+    // ** Second Pass: Resolve Label Equivalences & Remove Small Regions **
+    vector<int> labelSize(nextLabel, 0); // Count region sizes
+
     for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
         for (int j = 0; j < cols; j++) {
-            if (binaryImage.at<uchar>(i, j) == 0) continue; // Ignore the background
-            regionMap.at<int>(i, j) = find(parent, regionMap.at<int>(i, j));
-            labelCount[regionMap.at<int>(i, j)]++; // Count pixels per region
-        }
-    }
-    // Filter out small regions
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            if (regionMap.at<int>(i, j) > 0 && labelCount[regionMap.at<int>(i, j)] < minRegionSize) {
-                regionMap.at<int>(i, j) = 0; // Remove small noisy regions
+            if (regionRow[j] > 0) {
+                regionRow[j] = find(parent, regionRow[j]); // Get final label
+                labelSize[regionRow[j]]++;  // Count pixels per label
             }
         }
     }
-    return 0;
+
+    // ** Third Pass: Remove Small Regions (In-Place) **
+    for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
+        for (int j = 0; j < cols; j++) {
+            if (regionRow[j] > 0 && labelSize[regionRow[j]] < minRegionSize) {
+                regionRow[j] = 0; // Remove small regions
+            }
+        }
+    }
+
+    // ** Relabeling: Assign Sequential Labels (Optional) **
+    vector<int> relabel(nextLabel, 0);
+    int newLabel = 1;
+
+    for (int i = 1; i < nextLabel; i++) {
+        if (labelSize[i] >= minRegionSize) {
+            relabel[i] = newLabel++;
+        }
+    }
+
+    for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
+        for (int j = 0; j < cols; j++) {
+            if (regionRow[j] > 0) {
+                regionRow[j] = relabel[regionRow[j]];
+            }
+        }
+    }
+
+    return newLabel - 1; // Return number of valid regions
 }
+
 /**
  * @brief Two-pass segmentation for connected components with 8-connectivity.
  *        Filters out small noisy regions based on a threshold.
@@ -298,80 +330,98 @@ int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegi
         cerr << "ERROR: two_pass_segmentation - empty image" << endl;
         return -1;
     }
-    if (binaryImage.type() != CV_8UC1) { // check if it's a binary image
+    if (binaryImage.type() != CV_8UC1) { // Ensure it's a binary image
         cerr << "ERROR: two_pass_segmentation - not Binary image" << endl;
         return -1;
     }
+
     int rows = binaryImage.rows, cols = binaryImage.cols;
-    regionMap = Mat::zeros(rows, cols, CV_32S); // Initialize region map
-    vector<int> parent(1,0); // Initialize the parent array, start with label 0
-    int nextLabel = 1;
+    regionMap = Mat::zeros(rows, cols, CV_32S); // Initialize output matrix
 
-    // First pass: assign provisional labels and record equivalences
+    vector<int> parent(1, 0);  // Union-Find parent array
+    int nextLabel = 1;         // Label counter
+
+    // ** First Pass: Label Assignment & Union-Find **
     for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
+        const uchar* binaryRow = binaryImage.ptr<uchar>(i);
+
         for (int j = 0; j < cols; j++) {
-            if (binaryImage.at<uchar>(i, j) == 0) continue; // Ignore the background
+            if (binaryRow[j] == 0) continue; // Skip background
 
-            vector<int> neighbors; // storing neighbors' label
+            // Get neighboring labels (Avoid unnecessary vector operations)
+            int left = (j > 0) ? regionRow[j - 1] : 0;
+            int top = (i > 0) ? regionMap.ptr<int>(i - 1)[j] : 0;
+            int topLeft = (i > 0 && j > 0) ? regionMap.ptr<int>(i - 1)[j - 1] : 0;
+            int topRight = (i > 0 && j < cols - 1) ? regionMap.ptr<int>(i - 1)[j + 1] : 0;
 
-            // Check neighbor in prior row and col
-            if (j > 0 && regionMap.at<int>(i,j-1) > 0) { neighbors.push_back(regionMap.at<int>(i,j-1));} // left
-            if (j > 0 && regionMap.at<int>(i-1,j) > 0) { neighbors.push_back(regionMap.at<int>(i-1,j));} // top
-            if (i > 0 && j > 0 && regionMap.at<int>(i - 1, j - 1) > 0) neighbors.push_back(regionMap.at<int>(i - 1, j - 1)); // Top-left
-            if (i > 0 && j < cols - 1 && regionMap.at<int>(i - 1, j + 1) > 0) neighbors.push_back(regionMap.at<int>(i - 1, j + 1)); // Top-right
+            // Find the smallest nonzero neighbor label
+            int minLabel = INT_MAX;
+            if (left) minLabel = min(minLabel, left);
+            if (top) minLabel = min(minLabel, top);
+            if (topLeft) minLabel = min(minLabel, topLeft);
+            if (topRight) minLabel = min(minLabel, topRight);
 
-            if (neighbors.empty()) { // NO neighbor: assign a new label
-                regionMap.at<int>(i, j) = nextLabel;
+            if (minLabel == INT_MAX) { // No neighbors, assign a new label
+                regionRow[j] = nextLabel;
                 parent.push_back(nextLabel);
                 nextLabel++;
-            } else { // assign the min label
-                int minLabel = *min_element(neighbors.begin(), neighbors.end());
-                regionMap.at<int>(i, j) = minLabel;
-                // Compress path: union all neighbors in set
-                for (int label : neighbors) {
-                    connect(parent, label, minLabel);
-                }
+            } else { // Assign the smallest existing label
+                regionRow[j] = minLabel;
+                // Merge equivalences
+                if (left) connect(parent, left, minLabel);
+                if (top) connect(parent, top, minLabel);
+                if (topLeft) connect(parent, topLeft, minLabel);
+                if (topRight) connect(parent, topRight, minLabel);
             }
         }
     }
 
-    // Second pass: resolve label equivalences
-    unordered_map<int, int> labelCount;
+    // ** Second Pass: Resolve Label Equivalences **
+    vector<int> labelSize(nextLabel, 0); // Count region sizes
+
     for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
         for (int j = 0; j < cols; j++) {
-            if (binaryImage.at<uchar>(i, j) == 0) continue; // Ignore the background
-            regionMap.at<int>(i, j) = find(parent, regionMap.at<int>(i, j));
-            labelCount[regionMap.at<int>(i, j)]++; // Count pixels per region
-        }
-    }
-    // Filter out small regions
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            if (regionMap.at<int>(i, j) > 0 && labelCount[regionMap.at<int>(i, j)] < minRegionSize) {
-                regionMap.at<int>(i, j) = 0; // Remove small noisy regions
+            if (regionRow[j] > 0) {
+                regionRow[j] = find(parent, regionRow[j]); // Get final label
+                labelSize[regionRow[j]]++;  // Count pixels per label
             }
         }
     }
-    // Reassign labels to be sequential (1,2,3...)
-    unordered_map<int, int> relabelMap;
+
+    // ** Third Pass: Remove Small Regions (In-Place) **
+    for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
+        for (int j = 0; j < cols; j++) {
+            if (regionRow[j] > 0 && labelSize[regionRow[j]] < minRegionSize) {
+                regionRow[j] = 0; // Remove small regions
+            }
+        }
+    }
+
+    // ** Relabeling: Assign Sequential Labels (Optional) **
+    vector<int> relabel(nextLabel, 0);
     int newLabel = 1;
-    for (const auto& kv : labelCount) {
-        if (kv.first > 0 && kv.second >= minRegionSize) {
-            relabelMap[kv.first] = newLabel++;
+
+    for (int i = 1; i < nextLabel; i++) {
+        if (labelSize[i] >= minRegionSize) {
+            relabel[i] = newLabel++;
         }
     }
 
-    // Apply new labels
     for (int i = 0; i < rows; i++) {
+        int* regionRow = regionMap.ptr<int>(i);
         for (int j = 0; j < cols; j++) {
-            if (regionMap.at<int>(i, j) > 0) {
-                regionMap.at<int>(i, j) = relabelMap[regionMap.at<int>(i, j)];
+            if (regionRow[j] > 0) {
+                regionRow[j] = relabel[regionRow[j]];
             }
         }
     }
 
     return newLabel - 1; // Return number of valid regions
 }
+
 // Helper function to visualize the segmentation result
 int colorizeRegions(const cv::Mat& labelMap, Mat& colorImage) {
     if (labelMap.empty() || labelMap.type() != CV_32S) {

@@ -19,11 +19,6 @@ int getBinaryMask(Mat& regionMap, int regionID, Mat& binaryMask) {
     return 0;  // Success
 }
 
-// Compute the centroid of the region
-Point2f computeCentroid(Moments& m) {
-    return Point2f(m.m10 / m.m00, m.m01 / m.m00);
-}
-
 // Compute the least central moment axis (orientation angle)
 double computeLeastCentralMomentAxis(Moments& m) {
     double mu20 = m.mu20 / m.m00;
@@ -35,12 +30,11 @@ double computeLeastCentralMomentAxis(Moments& m) {
 // Compute the Oriented Bounding Box (OBB) using PCA
 
 int computeOrientedBoundingBox(Mat& binaryMask, Mat& regionMap, int regionID, RotatedRect& obb) {
-    Mat mask;
-
     vector<Point> regionPixels;
     findNonZero(binaryMask, regionPixels);  // Much faster than manual iteration
 
     if (regionPixels.empty()) {
+        cerr << "No region found" << endl;
         return -1;  // No region found
     }
 
@@ -99,7 +93,7 @@ float computePercentFilled(const vector<vector<Point>>& contours, const RotatedR
     return regionArea / obbArea;
 }
 
-int computeRegionShapeFeatures(const Mat& binaryMask, const RotatedRect& obb, int regionId, vector<float>& shapeFeatures) {
+int computeRegionShapeFeatures(const Mat& binaryMask, const RotatedRect& obb, vector<float>& shapeFeatures) {
     vector<vector<Point>> contours;
     findContours(binaryMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
     if (contours.empty()) {
@@ -125,10 +119,10 @@ int computeRegionFeatures(Mat& regionMap, int regionID, Mat& image, Mat& dst, ve
         return -1;  // Failed to get binary mask
     }
 
-    cv::Moments m = cv::moments(binaryMask, true);
+    Moments m = moments(binaryMask, true);
     if (m.m00 == 0) return -1;
 
-    cv::Point2f centroid(m.m10 / m.m00, m.m01 / m.m00);
+    Point2f centroid(m.m10 / m.m00, m.m01 / m.m00);
     double theta = computeLeastCentralMomentAxis(m);
 
     RotatedRect obb;
@@ -140,14 +134,12 @@ int computeRegionFeatures(Mat& regionMap, int regionID, Mat& image, Mat& dst, ve
     // Draw Features
     dst = image.clone();
     drawResults(dst, centroid, theta, obb);
-    imshow("Obb over image", dst);
-    waitKey(0);  // Wait indefinitely for a key press
 
     vector<double> huMoments;
     computeHuMoments(m, huMoments);
 
     vector<float> shapeFeatures;
-    computeRegionShapeFeatures(binaryMask, obb, regionID, shapeFeatures);
+    computeRegionShapeFeatures(binaryMask, obb, shapeFeatures);
 
     // Combine feature vectors
     features.clear();

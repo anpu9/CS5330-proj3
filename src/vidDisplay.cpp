@@ -2,6 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include "../include/image_process.h"
 #include "../include/obb_feature_extraction.h"
+#include "../db/db_manager.h"
 
 using namespace cv;
 using namespace std;
@@ -20,15 +21,21 @@ private:
     const string WINDOW_VIDEO = "Live";
     const string WINDOW_THRESHOLD = "HSV Thresholded";
     const string WINDOW_MORPH = "Morphological";
+    const string WINDOW_OBB = "OBB over image";
 
     // Member variables
     VideoCapture cap;           // Video capture object
+    DBManager db;
+
     const string OUTPUT_DIR = "../outputs/";  // Directory for saving outputs
     int imageId = 0;            // Counter for saved images
+
     Mode currentMode = Mode::NORMAL;   // Current processing mode
+
     float scale_factor;         // Scaling factor for resizing
     Size targetSize;            // Target size for processed images
-    vector<float> features;     // Region features of the current object
+
+
 
     // Struct to store image data
     struct Images {
@@ -39,6 +46,7 @@ private:
         Mat morp;           // Morphological filtered image
         Mat regionMap;      // Store segment region id
         Mat obb;            // Original frame with OBB overlay
+        vector<float> features;     // Region features of the current object
     } imgs;
 
     /**
@@ -110,10 +118,11 @@ private:
             imshow(WINDOW_MORPH, imgs.morp);
         }
 
-        // Process OBB features if in OBB mode
+        // Process OBB imgs.features if in OBB mode
         if (currentMode == Mode::OBB) {
             twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
-            computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, features);
+            computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, imgs.features);
+            imshow(WINDOW_OBB, imgs.obb);
         }
     }
 
@@ -127,7 +136,11 @@ private:
                 saveImages();
                 break;
             case 'q':
-                throw runtime_error("User exit");
+                cout << "Quitting..." << endl;
+                currentMode = Mode::NORMAL;  // Reset mode
+                destroyAllWindows();  // Close all windows
+                exit(0);
+                break;
             case 'z':
                 if (currentMode != Mode::THRESHOLD) {
                     currentMode = Mode::THRESHOLD;
@@ -147,11 +160,20 @@ private:
                 }
                 break;
             case 't':
-                currentMode = Mode::OBB;
+                if (currentMode == Mode::OBB) {
+                    currentMode = Mode::NORMAL;
+                    destroyWindow(WINDOW_OBB);  // Close OBB window when exiting
+                } else {
+                    currentMode = Mode::OBB;
+                    namedWindow(WINDOW_OBB, WINDOW_AUTOSIZE);  // Recreate window if needed
+                }
                 break;
             case 'n':
                 if (currentMode == Mode::OBB) {
-                    // TODO: Add new features
+                    string label;
+                    cout << "Please enter the feature for the object: ";
+                    cin >> label;
+                    db.writeFeatureVector(label, imgs.features);
                 }
         }
     }
@@ -176,6 +198,8 @@ public:
 
         // Initialize main window
         namedWindow(WINDOW_VIDEO, WINDOW_AUTOSIZE);
+        // Initialize DB
+        db = DBManager();
     }
 
     /**
@@ -183,7 +207,7 @@ public:
      */
     void run() {
         cout << "Controls:\n"
-        // TODO: traning mode
+        // TODO: write into new features
              << " 't' - Toggle traning mode\n"
              << " 'n' - add new features within traning mode\n"
              << " 's' - Save photo\n"
@@ -197,7 +221,7 @@ public:
                 }
 
                 processFrame();
-                int key = waitKey(10);
+                int key = waitKey(30);
                 if (key != -1) {
                     handleKeyPress(static_cast<char>(key));
                 }
