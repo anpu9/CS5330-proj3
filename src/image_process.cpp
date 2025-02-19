@@ -1,7 +1,7 @@
 /*
- * Authors: ${AUTHORS}
- * Date: 2025/2/14
- * Purpose: ${PURPOSE}
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/2/12
+ * Purpose: Pipeline to process image for object detection
  */
 
 #include "../include/image_process.h"

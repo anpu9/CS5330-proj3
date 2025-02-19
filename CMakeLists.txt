@@ -1,3 +1,9 @@
+
+ # Authors: Yuyang Tian and Arun Mekkad
+ # Date: 2025/2/14
+ # Purpose: Build executable for Proj3 using cmake
+ 
+
 cmake_minimum_required(VERSION 3.20)
 project(Proj3)
 message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")

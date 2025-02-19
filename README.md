@@ -30,11 +30,13 @@ Proj3/
 - **Description**: Real-time 2D object detection video framework
 - **Usage**:
   ```bash
-  ./VidDisplay
+  Object Detection Mode: ./VidDisplay
 
+  Training mode: ./VidDisplay --train
   ```
 - **Example**:
   ```bash
+  The following key bindings work only on training mode
   Task 1 - Press 'z' to display thresholded window (BGR -> HSV -> k-means algorithm)
   Task 2 - Press 'f' after 'z' to display morphological filter window
   Task 3 - Press 'c'

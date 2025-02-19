@@ -2,3 +2,5 @@
 CMakeLists.txt
 .vscode
 /cmake-build-debug
+/build-arun
+/Google_tests

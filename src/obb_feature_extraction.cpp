@@ -1,7 +1,7 @@
 /*
- * Authors: ${AUTHORS}
- * Date: 2025/2/14
- * Purpose: ${PURPOSE}
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/2/13
+ * Purpose: Implementation of OBB feature extraction
  */
 #include <opencv2/opencv.hpp>
 #include <iostream>

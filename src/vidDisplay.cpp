@@ -1,5 +1,11 @@
-#include <iostream>
+/*
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/2/12
+ * Purpose: Implementation of real-time object detection
+ */
+
 #include <opencv2/opencv.hpp>
+#include <iostream>
 #include "../include/image_process.h"
 #include "../include/obb_feature_extraction.h"
 #include "../db/db_manager.h"
@@ -11,11 +17,11 @@ class CameraApp {
 private:
     // Modes for image processing
     enum class Mode {
-        NORMAL,         // Default mode - displays the normal image
-        THRESHOLD,      // Apply threshold
-        MORPHOLOGICAL,   // Apply Morphological Filtering
-        COLOR_SEG,   // Apply Two-pass segmentation with color
-        OBB, // apply all threshold, Morphological Filtering, segmentation, OBB computation
+        NORMAL,
+        THRESHOLD,
+        MORPHOLOGICAL,
+        COLOR_SEG,
+        OBB,
     };
 
     // Constants for window names
@@ -26,42 +32,30 @@ private:
     const string WINDOW_SEG = "Colored segmentation - 8 connectivity";
 
     // Member variables
-    VideoCapture cap;           // Video capture object
+    VideoCapture cap;
     DBManager db;
+    const string OUTPUT_DIR = "../outputs/";
+    int imageId = 0;
+    Mode currentMode = Mode::NORMAL;
+    float scale_factor;
+    Size targetSize;
+    bool trainingMode;
 
-    const string OUTPUT_DIR = "../outputs/";  // Directory for saving outputs
-    int imageId = 0;            // Counter for saved images
-
-    Mode currentMode = Mode::NORMAL;   // Current processing mode
-
-    float scale_factor;         // Scaling factor for resizing
-    Size targetSize;            // Target size for processed images
-
-
-
-    // Struct to store image data
     struct Images {
-        Mat frame;          // Original frame
-        Mat hsv;            // HSV frame
-        Mat valueChannel;   // Value channel of HSV
-        Mat thresholded;    // Thresholded image
-        Mat morp;           // Morphological filtered image
-        Mat regionMap;      // Store segment region map
-        Mat colorizedRegions; // Colored regionMap
-        Mat obb;            // Original frame with OBB overlay
-        vector<float> features;     // Region features of the current object
+        Mat frame;
+        Mat hsv;
+        Mat valueChannel;
+        Mat thresholded;
+        Mat morp;
+        Mat regionMap;
+        Mat colorizedRegions;
+        Mat obb;
+        vector<float> features;
     } imgs;
 
-    /**
-     * @brief Generates a filename for saving images.
-     * @param task Optional prefix for the task.
-     * @param suffix Optional suffix for file description.
-     * @return A string representing the generated filename.
-     */
     string generateFilename(const string& task = "", const string& suffix = "") {
         return OUTPUT_DIR + task + to_string(imageId) + suffix + ".png";
     }
-
     /**
      * @brief Saves the current frame and processed frame to disk.
      */
@@ -89,55 +83,90 @@ private:
     /**
      * @brief Applies the current filter to the captured frame based on mode
      */
+    float calculateScaledEuclideanDistance(const vector<float>& v1, const vector<float>& v2, const vector<float>& stdevs) {
+        float distance = 0.0f;
+        for (size_t i = 0; i < v1.size(); ++i) {
+            float scaled_diff = (v1[i] - v2[i]) / stdevs[i];
+            distance += scaled_diff * scaled_diff;
+        }
+        return sqrt(distance);
+    }
+
+    string classifyObject(const vector<float>& currentFeatures) {
+        vector<pair<string, vector<float>>> dbFeatures;
+        db.loadFeatureVectors(dbFeatures);
+        
+        if (dbFeatures.empty()) {
+            return "Unknown";
+        }
+        
+        vector<float> stdevs(currentFeatures.size(), 0.0f);
+        for (size_t i = 0; i < currentFeatures.size(); ++i) {
+            float sum = 0.0f, sum_sq = 0.0f;
+            for (const auto& entry : dbFeatures) {
+                sum += entry.second[i];
+                sum_sq += entry.second[i] * entry.second[i];
+            }
+            float mean = sum / dbFeatures.size();
+            float variance = (sum_sq / dbFeatures.size()) - (mean * mean);
+            stdevs[i] = sqrt(variance);
+        }
+        
+        string closestLabel = "Unknown";
+        float minDistance = numeric_limits<float>::max();
+        
+        for (const auto& entry : dbFeatures) {
+            float distance = calculateScaledEuclideanDistance(currentFeatures, entry.second, stdevs);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestLabel = entry.first;
+            }
+        }
+        
+        if (minDistance > 5.0f) {
+            return "Unknown";
+        }
+        
+        return closestLabel;
+    }
+
     void processFrame() {
-        // Always update the live video window
         resize(imgs.frame, imgs.frame, targetSize);
         imshow(WINDOW_VIDEO, imgs.frame);
-
-        // Update threshold window if it's open
-        // Convert to HSV and extract value channel if any dependent mode is active
-        bool needsThresholding = currentMode != Mode::NORMAL;
-
-        if (needsThresholding) {
+        
+        if (currentMode >= Mode::THRESHOLD) {
             bgr_to_hsv(imgs.frame, imgs.hsv);
             extractChannel(imgs.hsv, imgs.valueChannel, 2);
             threshold(imgs.valueChannel, imgs.thresholded);
-        }
-
-        // Show threshold window if needed
-        if (currentMode == Mode::THRESHOLD) {
+            if(trainingMode)
             imshow(WINDOW_THRESHOLD, imgs.thresholded);
         }
 
-        // Apply morphological filtering if required
-        if (currentMode == Mode::MORPHOLOGICAL || currentMode == Mode::COLOR_SEG ||currentMode == Mode::OBB) {
+        if (currentMode >= Mode::MORPHOLOGICAL) {
             applyMorphologicalFiltering(imgs.thresholded, imgs.morp);
-        }
-
-        // Show morphological window if in MORPHOLOGICAL mode
-        if (currentMode == Mode::MORPHOLOGICAL) {
+            if(trainingMode)
             imshow(WINDOW_MORPH, imgs.morp);
         }
 
-        // Apply two pass segmentation if required
-        if (currentMode == Mode::OBB || currentMode == Mode::COLOR_SEG) {
+        if (currentMode >= Mode::COLOR_SEG) {
             twoPassSegmentation8conn(imgs.morp, imgs.regionMap);
-        }
-
-        // Show colored region window if in COLOR_SEG mode
-        if (currentMode == Mode::COLOR_SEG) {
             colorizeRegions(imgs.regionMap, imgs.colorizedRegions);
+            if(trainingMode)
             imshow(WINDOW_SEG, imgs.colorizedRegions);
         }
 
-        // Compute OBB and feature if in OBB mode
-        if (currentMode == Mode::OBB) {
+        if (currentMode == Mode::OBB || !trainingMode) {
             computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, imgs.features);
-            imshow(WINDOW_OBB, imgs.obb);
+            
+            if (trainingMode) {
+                imshow(WINDOW_OBB, imgs.obb);
+            } else {
+                string label = classifyObject(imgs.features);
+                putText(imgs.obb, label, Point(10, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0), 2);
+                imshow(WINDOW_OBB, imgs.obb);
+            }
         }
-
     }
-
     /**
      * @brief Routes keypresses to the appropriate handler.
      * @param key The pressed key.
@@ -154,7 +183,7 @@ private:
                 exit(0);
                 break;
             case 'z':
-                if (currentMode != Mode::THRESHOLD) {
+                if (currentMode < Mode::THRESHOLD) {
                     currentMode = Mode::THRESHOLD;
                     namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE);
                 } else {
@@ -163,21 +192,21 @@ private:
                 }
                 break;
             case 'f':
-                if (currentMode == Mode::THRESHOLD) {
+                if (currentMode < Mode::MORPHOLOGICAL) {
                     currentMode = Mode::MORPHOLOGICAL;
                     namedWindow(WINDOW_MORPH, WINDOW_AUTOSIZE);
-                } else if (currentMode == Mode::MORPHOLOGICAL) {
-                    currentMode = Mode::THRESHOLD;
-                    destroyWindow(WINDOW_MORPH);
+                } else if (currentMode > Mode::MORPHOLOGICAL) {
+                    currentMode = Mode::MORPHOLOGICAL;
+                    destroyWindow(WINDOW_SEG);
                 }
                 break;
             case 'c':
-                if (currentMode == Mode::COLOR_SEG) {
-                    currentMode = Mode::NORMAL;
-                    destroyWindow(WINDOW_SEG);  // Close OBB window when exiting
-                } else {
+                if (currentMode < Mode::COLOR_SEG) {
                     currentMode = Mode::COLOR_SEG;
-                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);  // Recreate window if needed
+                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);
+                } else {
+                    currentMode = Mode::MORPHOLOGICAL;
+                    destroyWindow(WINDOW_SEG);
                 }
                 break;
             case 't':
@@ -190,7 +219,7 @@ private:
                 }
                 break;
             case 'n':
-                if (currentMode == Mode::OBB) {
+                if (currentMode == Mode::OBB ) {
                     string label;
                     cout << "Please enter the type label for the object: ";
                     getline(cin, label);  // Read entire line
@@ -211,8 +240,8 @@ public:
      * @brief Constructor to initialize the CameraApp.
      * @param deviceId The ID of the camera device to use.
      */
-    CameraApp(int deviceId = 0) {
-        if (!cap.open(deviceId)) { //Replace with deviceId if needed
+    CameraApp(int deviceId = 0, bool trainingMode = false) : trainingMode(trainingMode) {
+        if (!cap.open(deviceId)) {
             throw runtime_error("Failed to open camera device " + to_string(deviceId));
         }
 
@@ -221,13 +250,15 @@ public:
         scale_factor = 256.0 / (frameSize.height * reduction);
         targetSize.width = frameSize.width * scale_factor;
         targetSize.height = frameSize.height * scale_factor;
-        cout << "Camera initialized with resolution: " << targetSize.width << "x" << targetSize.height
-             << endl;
+        cout << "Camera initialized with resolution: " << targetSize.width << "x" << targetSize.height << endl;
 
-        // Initialize main window
         namedWindow(WINDOW_VIDEO, WINDOW_AUTOSIZE);
-        // Initialize DB
         db = DBManager();
+
+        if (!trainingMode) {
+            currentMode = Mode::OBB;
+            namedWindow(WINDOW_OBB, WINDOW_AUTOSIZE);
+        }
     }
 
     /**
@@ -265,9 +296,13 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
-        CameraApp app(0);  // Use 0 for external camera, 1 for default camera
+        bool trainingMode = false;
+        if (argc > 1 && string(argv[1]) == "--train") {
+            trainingMode = true;
+        }
+        CameraApp app(2, trainingMode); // Pass trainingMode to constructor
         app.run();
         return 0;
     } catch (const exception& e) {
