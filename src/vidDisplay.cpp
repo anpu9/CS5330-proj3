@@ -135,7 +135,6 @@ private:
 
         if (currentMode == Mode::OBB || !trainingMode) {
             computeRegionFeatures(imgs.regionMap, 0, imgs.frame, imgs.obb, imgs.features);
-            
             if (trainingMode) {
                 imshow(WINDOW_OBB, imgs.obb);
             } else {
@@ -144,18 +143,18 @@ private:
                 imshow(WINDOW_OBB, imgs.obb);
             }
         }
-
-        // Classifier display
-        switch (currentClassifier) {
-            case CLASSIFIER::NN:
-                putText(imgs.obb, "Nearest neighbor", Point(400, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
-                imshow(WINDOW_OBB, imgs.obb);
-                break;
-            case CLASSIFIER::DT:
-                putText(imgs.obb, "Decison tree", Point(400, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
-                putText(imgs.obb, "Nearest neighbor", Point(450, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
-                imshow(WINDOW_OBB, imgs.obb);
-                break;
+        if (!trainingMode) {
+            // Classifier display
+            switch (currentClassifier) {
+                case CLASSIFIER::NN:
+                    putText(imgs.obb, "Nearest neighbor", Point(400, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
+                    imshow(WINDOW_OBB, imgs.obb);
+                    break;
+                case CLASSIFIER::DT:
+                    putText(imgs.obb, "Decison tree", Point(400, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
+                    imshow(WINDOW_OBB, imgs.obb);
+                    break;
+            }
         }
     }
     /**
@@ -297,7 +296,10 @@ public:
                 if (!cap.read(imgs.frame)) {
                     throw runtime_error("Failed to capture frame");
                 }
-
+                if (imgs.frame.empty()) {
+                    cerr << "Error: Image not loaded!" << endl;
+                    return;
+                }
                 processFrame();
                 int key = waitKey(30);
                 if (key != -1) {
