@@ -41,8 +41,10 @@ Proj3/
   Task 2 - Press 'f' after 'z' to display morphological filter window
   Task 3 - Press 'c'
   Task 4 - Press 't' into traning mode
-  Task 5 - Press 'n' after 't' to create a new feature vector into DB
-  Task
+  Task 5 - Press 'n' after 't' to create a new feature vector into DB under training mode
+  Task 6 - Press 'n' to have Nearest Neighbour as classifier, it's also default
+  Task 9 - Press 'n' to have Sklearn Decision tree as classifier. 
+           NOTE: please re-run src/decision_tree.py to generate a new decision tree after training change. And replace the decision tree logic in src/classifier.cpp
 #### **Google_test_run**
 
 - **Description**: Unit test using google-test

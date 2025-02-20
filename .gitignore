@@ -4,3 +4,7 @@ CMakeLists.txt
 /cmake-build-debug
 /build-arun
 /Google_tests
+.idea
+.DS_Store
+Project 3_ Real-time 2-D Object Recognition.pdf
+/env
