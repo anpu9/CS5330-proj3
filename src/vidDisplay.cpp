@@ -9,6 +9,7 @@
 #include "../include/image_process.h"
 #include "../include/obb_feature_extraction.h"
 #include "../db/db_manager.h"
+#include "../include/classifier.h"
 
 using namespace cv;
 using namespace std;
