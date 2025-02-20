@@ -7,6 +7,7 @@
 #ifndef PROJ3_CLASSIFIER_H
 #define PROJ3_CLASSIFIER_H
 #include <iostream>
+#include <vector>
 using namespace std;
 // Nearest neighbor Classifiers
 string classifyByNN(const vector<pair<string, vector<float>>>& dbFeatures, const vector<float>& features);
