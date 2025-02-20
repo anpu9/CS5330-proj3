@@ -1,22 +1,14 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/14
- * Purpose: Header file for evaluation
+ * Purpose: Header file for evaluation of confusion matrices
  */
 #ifndef PROJ3_EVALUATE_H
 #define PROJ3_EVALUATE_H
 
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-#include <random>
-#include <limits>
-#include <cmath>
-#include "../db/db_manager.h"
+using namespace std;
 
 
-void evaluateConfusionMatrix();
+void evaluateConfusionMatrix(int classifierType);
 
 #endif //PROJ3_EVALUATE_H

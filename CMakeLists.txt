@@ -76,6 +76,7 @@ add_db_executable(VidDisplay
         db/db_manager.cpp
         db/db_config.cpp
         src/evaluate.cpp
+        src/classifier.cpp
 )
 
 # 🔹 Add test executable
