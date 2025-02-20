@@ -10,6 +10,7 @@
 #include "../include/obb_feature_extraction.h"
 #include "../db/db_manager.h"
 #include "../include/classifier.h"
+#include "../include/evaluate.h"
 
 using namespace cv;
 using namespace std;
