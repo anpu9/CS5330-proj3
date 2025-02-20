@@ -17,25 +17,32 @@ using namespace std;
  * @return the closest label
  */
 string classifyByDecisionTree(const vector<float>& features) {
-    if (features[0] <= 0.416028) {
-        if (features[1] <= 1.373833) {
-            return "pen";
+    if (features[0] <= 0.403538){
+        if (features[1] <= 1.408385) {
+            if (features[4] <= 4.194975) {
+                return "spatula";
+            } else {
+                return "pen";
+            }
         } else {
             return "hair tie";
         }
     } else {
-        if (features[1] <= 1.557779) {
-            return "socks";
+        if (features[2] <= 3.092119) {
+            if (features[7] <= 2.607938) {
+                return "socks";
+            } else {
+                return "glass";
+            }
         } else {
-            if (features[1] <= 2.737464) {
-                return "powerbank";
+            if (features[1] <= 2.532149) {
+                return "glass";
             } else {
                 return "tea bag";
             }
         }
     }
 }
-
 // Compute standard deviation for each feature
 vector<float> computeFeatureStdDevs(const vector<pair<string, vector<float>>>& dbFeatures) {
     if (dbFeatures.empty()) return {};
