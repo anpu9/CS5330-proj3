@@ -110,8 +110,10 @@ private:
 
     void processFrame() {
         resize(imgs.frame, imgs.frame, targetSize);
-        imshow(WINDOW_VIDEO, imgs.frame);
-        
+        if (trainingMode) {
+            imshow(WINDOW_VIDEO, imgs.frame);
+        }
+
         if (currentMode >= Mode::THRESHOLD) {
             bgr_to_hsv(imgs.frame, imgs.hsv);
             extractChannel(imgs.hsv, imgs.valueChannel, 2);
@@ -234,7 +236,6 @@ private:
                 case 'd':
                     currentClassifier = CLASSIFIER::DT;
                     cout << "using DT" << endl;
-
                     break;
                 case 'q':
                     cout << "Quitting..." << endl;
@@ -269,6 +270,7 @@ public:
         if (!trainingMode) {
             currentMode = Mode::OBB;
             namedWindow(WINDOW_OBB, WINDOW_AUTOSIZE);
+            destroyWindow(WINDOW_VIDEO);
         }
     }
 
