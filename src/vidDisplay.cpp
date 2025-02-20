@@ -153,6 +153,7 @@ private:
                 break;
             case CLASSIFIER::DT:
                 putText(imgs.obb, "Decison tree", Point(400, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
+                putText(imgs.obb, "Nearest neighbor", Point(450, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
                 imshow(WINDOW_OBB, imgs.obb);
                 break;
         }
