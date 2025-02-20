@@ -9,6 +9,7 @@
 #include "../include/image_process.h"
 #include "../include/obb_feature_extraction.h"
 #include "../db/db_manager.h"
+#include "../include/classifier.h"
 
 using namespace cv;
 using namespace std;
@@ -23,6 +24,10 @@ private:
         COLOR_SEG,
         OBB,
     };
+    enum class CLASSIFIER {
+        NN,
+        DT,
+    };
 
     // Constants for window names
     const string WINDOW_VIDEO = "Live";
@@ -34,13 +39,14 @@ private:
     // Member variables
     VideoCapture cap;
     DBManager db;
+    vector<pair<string, vector<float>>> dbFeatures; // Static storage
     const string OUTPUT_DIR = "../outputs/";
     int imageId = 0;
     Mode currentMode = Mode::NORMAL;
+    CLASSIFIER currentClassifier = CLASSIFIER::NN;
     float scale_factor;
     Size targetSize;
     bool trainingMode;
-
     struct Images {
         Mat frame;
         Mat hsv;
@@ -80,53 +86,25 @@ private:
         }
     }
 
-    /**
-     * @brief Applies the current filter to the captured frame based on mode
-     */
-    float calculateScaledEuclideanDistance(const vector<float>& v1, const vector<float>& v2, const vector<float>& stdevs) {
-        float distance = 0.0f;
-        for (size_t i = 0; i < v1.size(); ++i) {
-            float scaled_diff = (v1[i] - v2[i]) / stdevs[i];
-            distance += scaled_diff * scaled_diff;
+    string classifyObject(const vector<float>& currentFeatures, CLASSIFIER classifier) {
+        if (dbFeatures.empty()) {
+            db.loadFeatureVectors(dbFeatures); // Load features only once
         }
-        return sqrt(distance);
-    }
-
-    string classifyObject(const vector<float>& currentFeatures) {
-        vector<pair<string, vector<float>>> dbFeatures;
-        db.loadFeatureVectors(dbFeatures);
-        
         if (dbFeatures.empty()) {
             return "Unknown";
         }
-        
-        vector<float> stdevs(currentFeatures.size(), 0.0f);
-        for (size_t i = 0; i < currentFeatures.size(); ++i) {
-            float sum = 0.0f, sum_sq = 0.0f;
-            for (const auto& entry : dbFeatures) {
-                sum += entry.second[i];
-                sum_sq += entry.second[i] * entry.second[i];
-            }
-            float mean = sum / dbFeatures.size();
-            float variance = (sum_sq / dbFeatures.size()) - (mean * mean);
-            stdevs[i] = sqrt(variance);
-        }
-        
         string closestLabel = "Unknown";
-        float minDistance = numeric_limits<float>::max();
-        
-        for (const auto& entry : dbFeatures) {
-            float distance = calculateScaledEuclideanDistance(currentFeatures, entry.second, stdevs);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestLabel = entry.first;
-            }
+        switch (classifier) {
+            case CLASSIFIER::NN:
+                closestLabel = classifyByNN(dbFeatures, currentFeatures);
+                break;
+            case CLASSIFIER::DT:
+                closestLabel = classifyByDecisionTree(currentFeatures);
+                break;
+            default:
+                cerr << "ERROR: it's not a valid classifier!";
+                exit(-1);
         }
-        
-        if (minDistance > 5.0f) {
-            return "Unknown";
-        }
-        
         return closestLabel;
     }
 
@@ -161,10 +139,22 @@ private:
             if (trainingMode) {
                 imshow(WINDOW_OBB, imgs.obb);
             } else {
-                string label = classifyObject(imgs.features);
-                putText(imgs.obb, label, Point(10, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0), 2);
+                string label = classifyObject(imgs.features, currentClassifier);
+                putText(imgs.obb, label, Point(10, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 127, 80), 2);
                 imshow(WINDOW_OBB, imgs.obb);
             }
+        }
+
+        // Classifier display
+        switch (currentClassifier) {
+            case CLASSIFIER::NN:
+                putText(imgs.obb, "Nearest neighbor", Point(450, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
+                imshow(WINDOW_OBB, imgs.obb);
+                break;
+            case CLASSIFIER::DT:
+                putText(imgs.obb, "Decison tree", Point(450, 300), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(147, 112, 219), 1);
+                imshow(WINDOW_OBB, imgs.obb);
+                break;
         }
     }
     /**
@@ -172,66 +162,87 @@ private:
      * @param key The pressed key.
      */
     void handleKeyPress(char key) {
-        switch (key) {
-            case 's':
-                saveImages();
-                break;
-            case 'q':
-                cout << "Quitting..." << endl;
-                currentMode = Mode::NORMAL;  // Reset mode
-                destroyAllWindows();  // Close all windows
-                exit(0);
-                break;
-            case 'z':
-                if (currentMode < Mode::THRESHOLD) {
-                    currentMode = Mode::THRESHOLD;
-                    namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE);
-                } else {
-                    currentMode = Mode::NORMAL;
-                    destroyWindow(WINDOW_THRESHOLD);
-                }
-                break;
-            case 'f':
-                if (currentMode < Mode::MORPHOLOGICAL) {
-                    currentMode = Mode::MORPHOLOGICAL;
-                    namedWindow(WINDOW_MORPH, WINDOW_AUTOSIZE);
-                } else if (currentMode > Mode::MORPHOLOGICAL) {
-                    currentMode = Mode::MORPHOLOGICAL;
-                    destroyWindow(WINDOW_SEG);
-                }
-                break;
-            case 'c':
-                if (currentMode < Mode::COLOR_SEG) {
-                    currentMode = Mode::COLOR_SEG;
-                    namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);
-                } else {
-                    currentMode = Mode::MORPHOLOGICAL;
-                    destroyWindow(WINDOW_SEG);
-                }
-                break;
-            case 't':
-                if (currentMode == Mode::OBB) {
-                    currentMode = Mode::NORMAL;
-                    destroyWindow(WINDOW_OBB);  // Close OBB window when exiting
-                } else {
-                    currentMode = Mode::OBB;
-                    namedWindow(WINDOW_OBB, WINDOW_AUTOSIZE);  // Recreate window if needed
-                }
-                break;
-            case 'n':
-                if (currentMode == Mode::OBB ) {
-                    string label;
-                    cout << "Please enter the type label for the object: ";
-                    getline(cin, label);  // Read entire line
-                    // Trim trailing spaces
-                    size_t end = label.find_last_not_of(" \t\r\n");
-                    if (end != string::npos) {
-                        label = label.substr(0, end + 1);
-                    }
+        if (trainingMode) {
+            switch (key) {
+                    case 's':
+                        saveImages();
+                        break;
+                    case 'q':
+                        cout << "Quitting..." << endl;
+                        currentMode = Mode::NORMAL;  // Reset mode
+                        destroyAllWindows();  // Close all windows
+                        exit(0);
+                        break;
+                    case 'z':
+                        if (currentMode < Mode::THRESHOLD) {
+                            currentMode = Mode::THRESHOLD;
+                            namedWindow(WINDOW_THRESHOLD, WINDOW_AUTOSIZE);
+                        } else {
+                            currentMode = Mode::NORMAL;
+                            destroyWindow(WINDOW_THRESHOLD);
+                        }
+                        break;
+                    case 'f':
+                        if (currentMode < Mode::MORPHOLOGICAL) {
+                            currentMode = Mode::MORPHOLOGICAL;
+                            namedWindow(WINDOW_MORPH, WINDOW_AUTOSIZE);
+                        } else if (currentMode > Mode::MORPHOLOGICAL) {
+                            currentMode = Mode::MORPHOLOGICAL;
+                            destroyWindow(WINDOW_SEG);
+                        }
+                        break;
+                    case 'c':
+                        if (currentMode < Mode::COLOR_SEG) {
+                            currentMode = Mode::COLOR_SEG;
+                            namedWindow(WINDOW_SEG, WINDOW_AUTOSIZE);
+                        } else {
+                            currentMode = Mode::MORPHOLOGICAL;
+                            destroyWindow(WINDOW_SEG);
+                        }
+                        break;
+                    case 't':
+                        if (currentMode == Mode::OBB) {
+                            currentMode = Mode::NORMAL;
+                            destroyWindow(WINDOW_OBB);  // Close OBB window when exiting
+                        } else {
+                            currentMode = Mode::OBB;
+                            namedWindow(WINDOW_OBB, WINDOW_AUTOSIZE);  // Recreate window if needed
+                        }
+                        break;
+                    case 'n':
+                        if (currentMode == Mode::OBB ) {
+                            string label;
+                            cout << "Please enter the type label for the object: ";
+                            getline(cin, label);  // Read entire line
+                            // Trim trailing spaces
+                            size_t end = label.find_last_not_of(" \t\r\n");
+                            if (end != string::npos) {
+                                label = label.substr(0, end + 1);
+                            }
 
-                    db.writeFeatureVector(label, imgs.features);
+                            db.writeFeatureVector(label, imgs.features);
+                        }
+                        break;
                 }
-                break;
+        } else {
+            switch (key) {
+                case 'n':
+                    currentClassifier = CLASSIFIER::NN;
+                    cout << "using NN" << endl;
+
+                    break;
+                case 'd':
+                    currentClassifier = CLASSIFIER::DT;
+                    cout << "using DT" << endl;
+
+                    break;
+                case 'q':
+                    cout << "Quitting..." << endl;
+                    currentMode = Mode::NORMAL;  // Reset mode
+                    destroyAllWindows();  // Close all windows
+                    exit(0);
+                    break;
+            }
         }
     }
 
@@ -265,14 +276,21 @@ public:
      * @brief Main application loop.
      */
     void run() {
-        cout << "Controls:\n"
-             << " 's' - Save photo\n"
-             << " 'z' - Toggle Thresholding\n"
-             << " 'f' - Toggle Morphological window\n"
-             << " 'c' - Toggle Colored segmented region window\n"
-             << " 't' - Toggle traning mode\n"
-             << " 'n' - add new features within traning mode\n"
-             << " 'q' - Quit\n";
+        if (trainingMode) {
+            cout << "Training Mode:\n"
+                 << " 's' - Save photo\n"
+                 << " 'z' - Toggle Thresholding\n"
+                 << " 'f' - Toggle Morphological window\n"
+                 << " 'c' - Toggle Colored segmented region window\n"
+                 << " 't' - Toggle traning mode\n"
+                 << " 'n' - add new features within traning mode\n"
+                 << " 'q' - Quit\n";
+        } else {
+            cout << "Classification Mode: DEFAULT classifier - Nearest neighbor\n"
+                 << " 'n' - Nearest neighbor \n"
+                 << " 'd' - Decision tree \n"
+                 << " 'q' - Quit\n";
+        }
         try {
             while (true) {
                 if (!cap.read(imgs.frame)) {
@@ -302,7 +320,7 @@ int main(int argc, char* argv[]) {
         if (argc > 1 && string(argv[1]) == "--train") {
             trainingMode = true;
         }
-        CameraApp app(2, trainingMode); // Pass trainingMode to constructor
+        CameraApp app(0, trainingMode); // Pass trainingMode to constructor
         app.run();
         return 0;
     } catch (const exception& e) {
