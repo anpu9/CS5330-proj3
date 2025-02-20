@@ -43,7 +43,7 @@ int computeOrientedBoundingBox(Mat& binaryMask, RotatedRect& obb) {
 }
 
 // Draw box, axis, centroid on original image
-void drawResults(Mat& image, Point2f centroid, double theta, RotatedRect& obb) {
+void drawResults(Mat& image, Point2f centroid, double theta, RotatedRect& obb, vector<float>& features) {
     if (image.type() == CV_8UC1) {
         cvtColor(image, image, COLOR_GRAY2BGR); // Convert grayscale to 3-channel BGR
     }
@@ -52,7 +52,6 @@ void drawResults(Mat& image, Point2f centroid, double theta, RotatedRect& obb) {
 
     // Draw Least Central Moment Axis (Red Line)
     Point2f axisVector(100 * cos(theta), 100 * sin(theta));
-//    line(image, centroid - axisVector, centroid + axisVector, Scalar(0, 0, 255), 2);
     arrowedLine(image, centroid - axisVector, centroid + axisVector, Scalar(0, 0, 255), 2, LINE_AA, 0, 0.1);  // Arrow at end
 
     // Draw Oriented Bounding Box (Green Box)
@@ -61,7 +60,17 @@ void drawResults(Mat& image, Point2f centroid, double theta, RotatedRect& obb) {
     for (int i = 0; i < 4; i++) {
         line(image, boxPoints[i], boxPoints[(i + 1) % 4], Scalar(0, 255, 0), 2);
     }
+    Scalar textColor(180, 220, 255);
+    if (features.empty()) {
+        cerr << "Error: Features vector is empty!" << endl;
+        return;
+    }
+    float aspectRatio = features.at(0);
+    // Positioning the text elegantly near the OBB corners
+    putText(image, "Aspect Ratio: " + to_string(aspectRatio), Point(10, 300), FONT_HERSHEY_SIMPLEX, 0.6, textColor, 2);
 }
+
+
 
 // Compute Hu Moments (Translation, Scale, and Rotation Invariant Features)
 void computeHuMoments(const Moments& m, vector<double>& huMoments) {
@@ -131,15 +140,14 @@ int computeRegionFeatures(Mat& regionMap, int regionID, Mat& image, Mat& dst, ve
         return -1;  // Failed to compute OBB
     }
 
-    // Draw Features
-    dst = image.clone();
-    drawResults(dst, centroid, theta, obb);
-
+    // Compute Features
     vector<double> huMoments;
     computeHuMoments(m, huMoments);
-
     vector<float> shapeFeatures;
     computeRegionShapeFeatures(binaryMask, obb, shapeFeatures);
+
+    dst = image.clone();
+    drawResults(dst, centroid, theta, obb, features);
 
     // Combine feature vectors
     features.clear();
