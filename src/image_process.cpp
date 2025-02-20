@@ -7,10 +7,9 @@
 #include "../include/image_process.h"
 #include <iostream>
 #include <vector>
-#include <unordered_map>
 #include <cmath>
-#include <random>
 #include <algorithm>
+#include <unordered_set>
 
 // Convert BGR image to HSV
 void bgr_to_hsv(const Mat& src, Mat& dst) {
@@ -340,7 +339,7 @@ int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegi
 
     vector<int> parent(1, 0);  // Union-Find parent array
     int nextLabel = 1;         // Label counter
-
+    unordered_set<int> boundaryLabels;  // Store labels touching the boundary
     // ** First Pass: Label Assignment & Union-Find **
     for (int i = 0; i < rows; i++) {
         int* regionRow = regionMap.ptr<int>(i);
@@ -374,6 +373,10 @@ int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegi
                 if (topLeft) connect(parent, topLeft, minLabel);
                 if (topRight) connect(parent, topRight, minLabel);
             }
+            // ** Track boundary labels **
+            if (i == 0 || i == rows - 1 || j == 0 || j == cols - 1) {
+                boundaryLabels.insert(regionRow[j]);  // Mark region as touching boundary
+            }
         }
     }
 
@@ -390,12 +393,13 @@ int twoPassSegmentation8conn(const Mat& binaryImage, Mat& regionMap, int minRegi
         }
     }
 
-    // ** Third Pass: Remove Small Regions (In-Place) **
+    // ** Third Pass: Remove Small & Boundary-Connected Regions **
     for (int i = 0; i < rows; i++) {
         int* regionRow = regionMap.ptr<int>(i);
         for (int j = 0; j < cols; j++) {
-            if (regionRow[j] > 0 && labelSize[regionRow[j]] < minRegionSize) {
-                regionRow[j] = 0; // Remove small regions
+            int label = regionRow[j];
+            if (label > 0 && (labelSize[label] < minRegionSize || boundaryLabels.count(label))) {
+                regionRow[j] = 0; // Remove small and boundary-connected regions
             }
         }
     }

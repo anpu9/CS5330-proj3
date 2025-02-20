@@ -7,6 +7,7 @@
 #ifndef PROJ3_OBB_FEATURE_EXTRACTION_H
 #define PROJ3_OBB_FEATURE_EXTRACTION_H
 #include <opencv2/opencv.hpp>
+#include <vector>
 #include <iostream>
 
 //int computeOrientedBoundingBox(cv::Mat& regionMap, int regionID, cv::RotatedRect& obb);
