@@ -42,8 +42,8 @@ Proj3/
   Task 3 - Press 'c'
   Task 4 - Press 't' into traning mode
   Task 5 - Press 'n' after 't' to create a new feature vector into DB under training mode
-  Task 6 - Press 'n' to have Nearest Neighbour as classifier, it's also default
-  Task 9 - Press 'n' to have Sklearn Decision tree as classifier. 
+  Task 6 - Press 'n' to have Nearest Neighbour as classifier, it's also default under Object Detection Mode
+  Task 9 - Press 'd' to have Sklearn Decision tree as classifier under Object Detection Mode
            NOTE: please re-run src/decision_tree.py to generate a new decision tree after training change. And replace the decision tree logic in src/classifier.cpp
 #### **Google_test_run**
 
