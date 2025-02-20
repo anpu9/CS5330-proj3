@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
+  <component name="CidrRootsConfiguration">
+    <excludeRoots>
+      <file path="$PROJECT_DIR$/Google_tests/test-imgs" />
+      <file path="$PROJECT_DIR$/external" />
+      <file path="$PROJECT_DIR$/external/mongo-cxx-driver" />
+    </excludeRoots>
+  </component>
+</project>

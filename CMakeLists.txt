@@ -75,6 +75,7 @@ add_db_executable(VidDisplay
         src/obb_feature_extraction.cpp
         db/db_manager.cpp
         db/db_config.cpp
+        src/classifier.cpp
 )
 
 # 🔹 Add test executable

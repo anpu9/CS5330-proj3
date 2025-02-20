@@ -31,7 +31,7 @@ Proj3/
 - **Usage**:
   ```bash
   Object Detection Mode: ./VidDisplay
-
+  
   Training mode: ./VidDisplay --train
   ```
 - **Example**:
@@ -42,6 +42,7 @@ Proj3/
   Task 3 - Press 'c'
   Task 4 - Press 't' into traning mode
   Task 5 - Press 'n' after 't' to create a new feature vector into DB
+  Task
 #### **Google_test_run**
 
 - **Description**: Unit test using google-test

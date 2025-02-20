@@ -29,7 +29,7 @@ double computeLeastCentralMomentAxis(Moments& m) {
 
 // Compute the Oriented Bounding Box (OBB) using PCA
 
-int computeOrientedBoundingBox(Mat& binaryMask, Mat& regionMap, int regionID, RotatedRect& obb) {
+int computeOrientedBoundingBox(Mat& binaryMask, RotatedRect& obb) {
     vector<Point> regionPixels;
     findNonZero(binaryMask, regionPixels);  // Much faster than manual iteration
 
@@ -126,7 +126,7 @@ int computeRegionFeatures(Mat& regionMap, int regionID, Mat& image, Mat& dst, ve
     double theta = computeLeastCentralMomentAxis(m);
 
     RotatedRect obb;
-    if (computeOrientedBoundingBox(binaryMask, regionMap, regionID, obb) != 0) {
+    if (computeOrientedBoundingBox(binaryMask, obb) != 0) {
         std::cerr << "Error: Unable to compute Oriented Bounding Box for region ID: " << regionID << std::endl;
         return -1;  // Failed to compute OBB
     }
