@@ -1,7 +1,7 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/16
- * Purpose: Classifiers for object detection
+ * Purpose: Header file for classifiers 
  */
 
 #ifndef PROJ3_CLASSIFIER_H
