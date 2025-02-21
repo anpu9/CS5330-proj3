@@ -10,6 +10,7 @@
 #include "../include/obb_feature_extraction.h"
 #include "../db/db_manager.h"
 #include "../include/classifier.h"
+#include "../include/evaluate.h"
 
 using namespace cv;
 using namespace std;
@@ -85,6 +86,12 @@ private:
                 break;
         }
     }
+    /**
+     * @brief Classifies the current object using the specified classifier.
+     * @param currentFeatures The feature vector of the current object.
+     * @param classifier The classifier to use (NN or Decision Tree).
+     * @return The label of the closest object in the database.
+     */
 
     string classifyObject(const vector<float>& currentFeatures, CLASSIFIER classifier) {
         if (dbFeatures.empty()) {
@@ -108,6 +115,7 @@ private:
         return closestLabel;
     }
 
+// Applies image processing and classification respective to the current mode
     void processFrame() {
         resize(imgs.frame, imgs.frame, targetSize);
         if (trainingMode) {
@@ -243,6 +251,12 @@ private:
                     destroyAllWindows();  // Close all windows
                     exit(0);
                     break;
+                case 'e':
+                    if(currentClassifier == CLASSIFIER::NN) {
+                        evaluateConfusionMatrix(0);
+                    } else {
+                        evaluateConfusionMatrix(1);
+                    }
             }
         }
     }
@@ -285,7 +299,7 @@ public:
                  << " 'f' - Toggle Morphological window\n"
                  << " 'c' - Toggle Colored segmented region window\n"
                  << " 't' - Toggle traning mode\n"
-                 << " 'n' - add new features within traning mode\n"
+                 << " 'n' - add new features within training mode\n"
                  << " 'q' - Quit\n";
         } else {
             cout << "Classification Mode: DEFAULT classifier - Nearest neighbor\n"
@@ -325,7 +339,7 @@ int main(int argc, char* argv[]) {
         if (argc > 1 && string(argv[1]) == "--train") {
             trainingMode = true;
         }
-        CameraApp app(0, trainingMode); // Pass trainingMode to constructor
+        CameraApp app(2, trainingMode); // Pass trainingMode to constructor
         app.run();
         return 0;
     } catch (const exception& e) {
