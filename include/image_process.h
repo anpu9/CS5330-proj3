@@ -1,7 +1,7 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
  * Date: 2025/2/14
- * Purpose: A data pipeline to process image for object detection
+ * Purpose: Header file for image processing functions
  */
 #ifndef PROJ3_IMAGE_PROCESS_H
 #define PROJ3_IMAGE_PROCESS_H
